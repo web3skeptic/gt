@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './App.css';
-import GymTracker from './components/GymTracker';
-
+import GymTrackerApp from './components/GymTrackerApp';
 function App() {
+
+
   return (
     <div className="App">
-      <GymTracker />
+      <GymTrackerApp />
     </div>
   );
+
 }
 
 export default App;
