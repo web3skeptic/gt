@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Dumbbell } from 'lucide-react';
 import AddSetForm from './common/AddSetForm';
 import SetHistory from './common/SetHistory';
 
@@ -39,6 +39,63 @@ const ExercisePage = ({
 
   if (!currentExercise) return null;
   
+  // Calculate estimated one-rep max using Brzycki formula
+  const calculateOneRepMax = (weight, reps) => {
+    if (weight <= 0 || reps <= 0 || reps > 10) return null;
+    // Brzycki formula: weight × (36 / (37 - reps))
+    return weight * (36 / (37 - reps));
+  };
+  
+  // Find the best recent set for 1RM calculation (highest theoretical 1RM within last 30 days)
+  const getRecentOneRepMax = () => {
+    if (!currentExercise.history || currentExercise.history.length === 0) return null;
+    
+    // Get date from 30 days ago
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoffTime = thirtyDaysAgo.getTime();
+    
+    let bestOneRM = 0;
+    let bestSet = null;
+    
+    // Make a copy of the history array to avoid mutation
+    const historyCopy = [...currentExercise.history];
+    
+    historyCopy.forEach(set => {
+      // Skip sets with 0 weight or more than 10 reps (less accurate for 1RM)
+      if (!set.weight || set.weight <= 0 || !set.repetitions || set.repetitions <= 0 || set.repetitions > 10) return;
+      
+      // Skip sets older than 30 days
+      if (set.timestamp < cutoffTime) return;
+      
+      const oneRM = calculateOneRepMax(set.weight, set.repetitions);
+      if (oneRM > bestOneRM) {
+        bestOneRM = oneRM;
+        bestSet = set;
+      }
+    });
+    
+    return bestSet ? {
+      oneRM: bestOneRM,
+      weight: bestSet.weight,
+      reps: bestSet.repetitions
+    } : null;
+  };
+  
+  // Get the current theoretical 1RM if form values are valid
+  const getCurrentOneRepMax = () => {
+    const weight = parseFloat(newSet.weight);
+    const reps = parseInt(newSet.repetitions);
+    
+    if (weight > 0 && reps > 0 && reps <= 10) {
+      return calculateOneRepMax(weight, reps);
+    }
+    return null;
+  };
+  
+  const recentOneRMData = getRecentOneRepMax();
+  const currentOneRM = getCurrentOneRepMax();
+
   const handleEditSet = (set) => {
     setEditingSet(set);
     setNewSet({
@@ -163,11 +220,29 @@ const ExercisePage = ({
         </button>
         <h1 className="text-xl font-bold">{currentExercise.name}</h1>
       </div>
-      
+      {/* One Rep Max Calculator Section - Compact Version */}
+      <div className="bg-white p-3 rounded-lg shadow mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Dumbbell size={16} className="mr-1 text-black-500 mr-2" />
+            <span className="text-sm font-medium">Estimated 1RM:</span>
+          </div>
+          
+          {/* Show current 1RM from form inputs first, then recent 1RM if available */}
+          {currentOneRM ? (
+            <div className="text-sm italic">{Math.round(currentOneRM)} kg</div>
+          ) : recentOneRMData ? (
+            <div className="text-sm italic">{Math.round(recentOneRMData.oneRM)} kg</div>
+          ) : (
+            <div className="text-xs text-gray-300 italic">Add weight & reps (≤10) to calculate</div>
+          )}
+        </div>
+      </div>
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <h2 className="text-lg font-semibold mb-3">
           {editingSet ? 'Edit Set' : 'Add New Set'}
         </h2>
+
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
             <label className="block text-sm text-gray-600">Weight (kg)</label>
@@ -264,6 +339,7 @@ const ExercisePage = ({
           </button>
         )}
       </div>
+      
       <SetHistory 
         history={currentExercise.history} 
         onEditSet={handleEditSet}
