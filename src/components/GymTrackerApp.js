@@ -59,8 +59,14 @@ const GymTrackerApp = () => {
       };
       
       setExercises([...exercises, exercise]);
+      
+      // Automatically add the new exercise to active exercises
+      setActiveExercises([...activeExercises, newExerciseName.trim()]);
+      
       setNewExerciseName('');
-      goToHome();
+      
+      // Stay on the manage exercises page instead of going to home
+      setPage('manageExercises');
     }
   };
 
@@ -149,6 +155,8 @@ const GymTrackerApp = () => {
           activeExercises={activeExercises}
           toggleActiveExercise={toggleActiveExercise}
           deleteExercise={deleteExercise}
+          setExercises={setExercises}
+          setActiveExercises={setActiveExercises}
         />
       )}
     </div>

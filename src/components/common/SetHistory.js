@@ -79,9 +79,18 @@ const SetHistory = ({ history, onEditSet, onDeleteSet }) => {
       )}
       
       {groupedSets.map(([dateString, sets]) => {
-        // Calculate total volume for the day
+        // Check if all sets for this day have 0 weight
+        const allZeroWeight = sets.every(set => set.weight === 0);
+        
+        // Calculate total volume for the day (in reps if all zero weight, otherwise in kg)
         const totalDayVolume = sets.reduce((total, set) => {
-          return total + calculateSetVolume(set);
+          if (allZeroWeight) {
+            // Sum reps for zero-weight exercises
+            return total + set.repetitions;
+          } else {
+            // Calculate volume as weight × reps for exercises with weight
+            return total + calculateSetVolume(set);
+          }
         }, 0);
 
         return (
@@ -89,7 +98,7 @@ const SetHistory = ({ history, onEditSet, onDeleteSet }) => {
             <div className="bg-gray-100 p-2 border-b flex justify-between items-center">
               <h3 className="font-medium text-gray-700">{formatDate(sets[0].timestamp)}</h3>
               <div className="text-sm text-gray-600">
-                Vol: {totalDayVolume.toFixed(1)} kg
+                Vol: {totalDayVolume.toFixed(0)} {allZeroWeight ? 'reps' : 'kg'}
               </div>
             </div>
             <div className="divide-y">
@@ -106,7 +115,9 @@ const SetHistory = ({ history, onEditSet, onDeleteSet }) => {
                     >
                       <div className="flex justify-between items-center">
                         <div className="font-medium">
-                          {set.weight} kg × {set.repetitions} reps
+                          {set.weight === 0 ? 
+                            `${set.repetitions} reps` : 
+                            `${set.weight} kg × ${set.repetitions} reps`}
                         </div>
                         <div className="text-xs text-gray-500">
                           {formatTime(set.timestamp)}
