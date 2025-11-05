@@ -101,7 +101,9 @@ const ExercisePage = ({
     setNewSet({
       weight: set.weight,
       repetitions: set.repetitions,
-      note: set.note || ''
+      note: set.note || '',
+      myoRep: set.myoRep || false,
+      dropset: set.dropset || false
     });
   };
 
@@ -124,6 +126,8 @@ const ExercisePage = ({
                   weight: parseFloat(newSet.weight),
                   repetitions: parseInt(newSet.repetitions),
                   note: newSet.note,
+                  myoRep: newSet.myoRep || false,
+                  dropset: newSet.dropset || false,
                   timestamp: updatedTimestamp // Update the timestamp
                 };
               }
@@ -133,7 +137,7 @@ const ExercisePage = ({
         }
         return ex;
       });
-      
+
       setExercises(updatedExercises);
       const updatedCurrentExercise = updatedExercises.find(ex => ex.name === currentExercise.name);
       setCurrentExercise(updatedCurrentExercise);
@@ -141,7 +145,9 @@ const ExercisePage = ({
       setNewSet({
         weight: '',
         repetitions: '',
-        note: ''
+        note: '',
+        myoRep: false,
+        dropset: false
       });
     }
   };
@@ -167,7 +173,9 @@ const ExercisePage = ({
     setNewSet({
       weight: '',
       repetitions: '',
-      note: ''
+      note: '',
+      myoRep: false,
+      dropset: false
     });
   };
 
@@ -177,7 +185,7 @@ const ExercisePage = ({
       // Create a timestamp using the current date and time
       const now = new Date();
       const timestamp = now.getTime();
-      
+
       const updatedExercises = exercises.map(ex => {
         if (ex.name === currentExercise.name) {
           const newHistory = [
@@ -185,14 +193,16 @@ const ExercisePage = ({
               weight: parseFloat(newSet.weight),
               repetitions: parseInt(newSet.repetitions),
               note: newSet.note || '',
+              myoRep: newSet.myoRep || false,
+              dropset: newSet.dropset || false,
               timestamp: timestamp
             },
             ...ex.history
           ];
-          
+
           // Sort by timestamp (newest first)
           newHistory.sort((a, b) => b.timestamp - a.timestamp);
-          
+
           return {
             ...ex,
             history: newHistory
@@ -200,14 +210,16 @@ const ExercisePage = ({
         }
         return ex;
       });
-      
+
       setExercises(updatedExercises);
       const updatedCurrentExercise = updatedExercises.find(ex => ex.name === currentExercise.name);
       setCurrentExercise(updatedCurrentExercise);
       setNewSet({
         weight: '',
         repetitions: '',
-        note: ''
+        note: '',
+        myoRep: false,
+        dropset: false
       });
     }
   };
@@ -246,8 +258,8 @@ const ExercisePage = ({
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
             <label className="block text-sm text-gray-600">Weight (kg)</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               value={newSet.weight}
               onChange={e => setNewSet({...newSet, weight: e.target.value})}
               className="w-full p-2 border rounded-md"
@@ -256,15 +268,41 @@ const ExercisePage = ({
           </div>
           <div>
             <label className="block text-sm text-gray-600">Reps</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               value={newSet.repetitions}
               onChange={e => setNewSet({...newSet, repetitions: e.target.value})}
               className="w-full p-2 border rounded-md"
             />
           </div>
         </div>
-        
+
+        {/* Set Type Toggle Buttons */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <button
+            type="button"
+            onClick={() => setNewSet({...newSet, myoRep: !newSet.myoRep})}
+            className={`py-2 px-4 rounded-md border-2 transition-colors ${
+              newSet.myoRep
+                ? 'bg-blue-500 text-white border-blue-500'
+                : 'bg-white text-gray-700 border-gray-300'
+            }`}
+          >
+            Myo Rep
+          </button>
+          <button
+            type="button"
+            onClick={() => setNewSet({...newSet, dropset: !newSet.dropset})}
+            className={`py-2 px-4 rounded-md border-2 transition-colors ${
+              newSet.dropset
+                ? 'bg-orange-500 text-white border-orange-500'
+                : 'bg-white text-gray-700 border-gray-300'
+            }`}
+          >
+            Dropset
+          </button>
+        </div>
+
         {/* Date and time controls - only visible when editing */}
         {editingSet && (
           <>

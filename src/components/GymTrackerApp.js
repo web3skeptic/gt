@@ -22,7 +22,9 @@ const GymTrackerApp = () => {
   const [newSet, setNewSet] = useState({
     weight: '',
     repetitions: '',
-    note: ''
+    note: '',
+    myoRep: false,
+    dropset: false
   });
 
   // Save to localStorage whenever data changes
@@ -81,6 +83,8 @@ const GymTrackerApp = () => {
                 weight: parseFloat(newSet.weight),
                 repetitions: parseInt(newSet.repetitions),
                 note: newSet.note,
+                myoRep: newSet.myoRep || false,
+                dropset: newSet.dropset || false,
                 timestamp: Date.now()
               },
               ...ex.history
@@ -89,13 +93,15 @@ const GymTrackerApp = () => {
         }
         return ex;
       });
-      
+
       setExercises(updatedExercises);
       setCurrentExercise(updatedExercises.find(ex => ex.name === currentExercise.name));
       setNewSet({
         weight: '',
         repetitions: '',
-        note: ''
+        note: '',
+        myoRep: false,
+        dropset: false
       });
     }
   };

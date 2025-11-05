@@ -109,20 +109,35 @@ const SetHistory = ({ history, onEditSet, onDeleteSet }) => {
                 return (
                   <div key={setId} className="relative">
                     {/* Main content */}
-                    <div 
+                    <div
                       className={`p-3 bg-white cursor-pointer transition-all duration-200 ${isActive ? 'bg-gray-50' : ''}`}
                       onClick={() => toggleActiveItem(setId)}
                     >
                       <div className="flex justify-between items-center">
                         <div className="font-medium">
-                          {set.weight === 0 ? 
-                            `${set.repetitions} reps` : 
+                          {set.weight === 0 ?
+                            `${set.repetitions} reps` :
                             `${set.weight} kg × ${set.repetitions} reps`}
                         </div>
                         <div className="text-xs text-gray-500">
                           {formatTime(set.timestamp)}
                         </div>
                       </div>
+                      {/* Display set type badges */}
+                      {(set.myoRep || set.dropset) && (
+                        <div className="flex gap-2 mt-2">
+                          {set.myoRep && (
+                            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-medium">
+                              Myo Rep
+                            </span>
+                          )}
+                          {set.dropset && (
+                            <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded-md font-medium">
+                              Dropset
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {set.note && <p className="text-sm text-gray-600 mt-1">{set.note}</p>}
                     </div>
                     
