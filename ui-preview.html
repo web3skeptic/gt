@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Tracker - UI Preview (Myo Rep & Dropset Feature)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-md mx-auto">
+        <h1 class="text-2xl font-bold mb-4 text-center">Gym Tracker - Myo Rep & Dropset Feature</h1>
+
+        <!-- Add New Set Form -->
+        <div class="bg-white p-4 rounded-lg shadow mb-6">
+            <h2 class="text-lg font-semibold mb-3">Add New Set</h2>
+
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label class="block text-sm text-gray-600">Weight (kg)</label>
+                    <input
+                        type="number"
+                        value="100"
+                        class="w-full p-2 border rounded-md"
+                        step="0.5"
+                    />
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600">Reps</label>
+                    <input
+                        type="number"
+                        value="8"
+                        class="w-full p-2 border rounded-md"
+                    />
+                </div>
+            </div>
+
+            <!-- NEW: Set Type Toggle Buttons -->
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <button
+                    type="button"
+                    id="myoRepBtn"
+                    class="py-2 px-4 rounded-md border-2 transition-colors bg-white text-gray-700 border-gray-300"
+                    onclick="toggleMyoRep()"
+                >
+                    Myo Rep
+                </button>
+                <button
+                    type="button"
+                    id="dropsetBtn"
+                    class="py-2 px-4 rounded-md border-2 transition-colors bg-white text-gray-700 border-gray-300"
+                    onclick="toggleDropset()"
+                >
+                    Dropset
+                </button>
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-sm text-gray-600">Notes</label>
+                <input
+                    type="text"
+                    class="w-full p-2 border rounded-md"
+                    placeholder="Optional"
+                />
+            </div>
+
+            <button class="w-full py-2 rounded-md bg-blue-500 text-white">
+                Add Set
+            </button>
+        </div>
+
+        <!-- Set History Preview -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="bg-gray-100 p-2 border-b flex justify-between items-center">
+                <h3 class="font-medium text-gray-700">Today</h3>
+                <div class="text-sm text-gray-600">Vol: 800 kg</div>
+            </div>
+
+            <div class="divide-y">
+                <!-- Example 1: Regular set (no badges) -->
+                <div class="p-3 bg-white">
+                    <div class="flex justify-between items-center">
+                        <div class="font-medium">100 kg × 8 reps</div>
+                        <div class="text-xs text-gray-500">10:30:15 AM</div>
+                    </div>
+                </div>
+
+                <!-- Example 2: Myo Rep set (blue badge) -->
+                <div class="p-3 bg-white">
+                    <div class="flex justify-between items-center">
+                        <div class="font-medium">90 kg × 10 reps</div>
+                        <div class="text-xs text-gray-500">10:28:42 AM</div>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-medium">
+                            Myo Rep
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Example 3: Dropset (orange badge) -->
+                <div class="p-3 bg-white">
+                    <div class="flex justify-between items-center">
+                        <div class="font-medium">80 kg × 12 reps</div>
+                        <div class="text-xs text-gray-500">10:26:18 AM</div>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <span class="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded-md font-medium">
+                            Dropset
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Example 4: Both Myo Rep AND Dropset (both badges) -->
+                <div class="p-3 bg-white">
+                    <div class="flex justify-between items-center">
+                        <div class="font-medium">70 kg × 15 reps</div>
+                        <div class="text-xs text-gray-500">10:24:05 AM</div>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-medium">
+                            Myo Rep
+                        </span>
+                        <span class="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded-md font-medium">
+                            Dropset
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">Felt great today!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+            <h3 class="font-bold mb-2">How to Use:</h3>
+            <ul class="text-sm space-y-1">
+                <li>• Both buttons are <strong>OFF by default</strong> (white/gray)</li>
+                <li>• Click <strong>"Myo Rep"</strong> to toggle it on (turns blue)</li>
+                <li>• Click <strong>"Dropset"</strong> to toggle it on (turns orange)</li>
+                <li>• You can enable <strong>one, both, or neither</strong></li>
+                <li>• Badges appear in the set history for easy tracking</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let myoRepActive = false;
+        let dropsetActive = false;
+
+        function toggleMyoRep() {
+            myoRepActive = !myoRepActive;
+            const btn = document.getElementById('myoRepBtn');
+            if (myoRepActive) {
+                btn.className = 'py-2 px-4 rounded-md border-2 transition-colors bg-blue-500 text-white border-blue-500';
+            } else {
+                btn.className = 'py-2 px-4 rounded-md border-2 transition-colors bg-white text-gray-700 border-gray-300';
+            }
+        }
+
+        function toggleDropset() {
+            dropsetActive = !dropsetActive;
+            const btn = document.getElementById('dropsetBtn');
+            if (dropsetActive) {
+                btn.className = 'py-2 px-4 rounded-md border-2 transition-colors bg-orange-500 text-white border-orange-500';
+            } else {
+                btn.className = 'py-2 px-4 rounded-md border-2 transition-colors bg-white text-gray-700 border-gray-300';
+            }
+        }
+    </script>
+</body>
+</html>
