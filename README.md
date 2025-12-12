@@ -1,70 +1,106 @@
-# Getting Started with Create React App
+# Gym Tracker
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A lightweight gym tracking app built with Svelte 5 and Tailwind CSS.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- Track exercises with weight, reps, and notes
+- View exercise history grouped by date
+- Calculate estimated 1-rep max (1RM) using Brzycki formula
+- Manage active/inactive exercises
+- Export/Import workout data as JSON
+- Responsive mobile-first design
+- Local storage persistence
 
-### `npm start`
+## Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Svelte 5** - Modern reactive UI framework with runes
+- **Vite** - Fast build tool
+- **Tailwind CSS** - Utility-first CSS framework
+- **Lucide Svelte** - Icon library
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Development
 
-### `npm test`
+### Prerequisites
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Node.js (v18 or higher recommended)
+- npm or yarn
 
-### `npm run build`
+### Installation
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+npm install
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Run Development Server
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+npm run dev
+```
 
-### `npm run eject`
+The app will be available at `http://localhost:5173`
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Build for Production
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+npm run build
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+The production build will be in the `dist` folder.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Preview Production Build
 
-## Learn More
+```bash
+npm run preview
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Deployment
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+This project is configured for GitHub Pages deployment.
 
-### Code Splitting
+```bash
+npm run deploy
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+This will build the project and deploy it to the `gh-pages` branch.
 
-### Analyzing the Bundle Size
+## Project Structure
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```
+src/
+├── components/
+│   ├── common/
+│   │   ├── ExerciseCard.svelte
+│   │   └── SetHistory.svelte
+│   ├── AddExercisePage.svelte
+│   ├── ExercisePage.svelte
+│   ├── HomePage.svelte
+│   └── ManageExercisesPage.svelte
+├── utils/
+│   ├── formatters.js
+│   └── initialData.js
+├── App.svelte
+├── main.js
+└── index.css
+```
 
-### Making a Progressive Web App
+## Features in Detail
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Exercise Tracking
+- Add sets with weight, reps, and optional notes
+- Edit existing sets with custom date/time
+- Delete sets with confirmation dialog
 
-### Advanced Configuration
+### 1-Rep Max Calculator
+- Automatic calculation using Brzycki formula
+- Shows best estimated 1RM from last 30 days
+- Real-time calculation as you input weight/reps
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### Data Management
+- Export all workout data to JSON
+- Import previously exported data
+- All data stored in browser localStorage
 
-### Deployment
+## License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+MIT
