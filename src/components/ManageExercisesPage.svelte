@@ -1,5 +1,5 @@
 <script>
-  import { ArrowLeft, Plus, Trash2, Download, Upload, ChevronDown, ChevronUp, Edit2, X, Check } from 'lucide-svelte';
+  import { ArrowLeft, Plus, Trash2, Download, Upload, ChevronDown, ChevronUp, Edit2, X, Check, Search } from 'lucide-svelte';
 
   let {
     goToHome,
@@ -15,6 +15,7 @@
   let expandedExercises = $state({});
   let editingExercise = $state(null);
   let editMuscles = $state([]);
+  let searchQuery = $state('');
 
   const availableMuscles = [
     'biceps', 'triceps', 'deltoids', 'forearms', 'trapezius',
@@ -24,6 +25,11 @@
 
   let selectedMuscle = $state('');
   let engagement = $state(0.5);
+
+  // Filter exercises based on search query
+  const filteredExercises = $derived(
+    exercises.filter(ex => ex.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   const toggleExpand = (name) => {
     expandedExercises[name] = !expandedExercises[name];
@@ -207,11 +213,29 @@
   </div>
 
   <h2 class="text-lg font-semibold mb-2">Your Exercises</h2>
+
   {#if exercises.length === 0}
     <p class="text-center py-8 text-gray-500">No exercises added yet</p>
   {:else}
-    <div class="space-y-2">
-      {#each exercises as exercise}
+    <!-- Search Input -->
+    <div class="mb-4 relative">
+      <div class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+        <Search size={20} />
+      </div>
+      <input
+        type="text"
+        placeholder="Search exercises..."
+        value={searchQuery}
+        oninput={(e) => searchQuery = e.target.value}
+        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {#if filteredExercises.length === 0}
+      <p class="text-center py-8 text-gray-500">No exercises found</p>
+    {:else}
+      <div class="space-y-2">
+        {#each filteredExercises as exercise}
         <div class="bg-white rounded-md shadow">
           <div class="flex items-center justify-between p-3">
             <div class="flex items-center flex-1">
@@ -350,6 +374,7 @@
           {/if}
         </div>
       {/each}
-    </div>
+      </div>
+    {/if}
   {/if}
 </div>
