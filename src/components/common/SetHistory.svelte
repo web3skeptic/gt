@@ -111,10 +111,15 @@
                 onkeydown={(e) => e.key === 'Enter' && toggleActiveItem(setId)}
               >
                 <div class="flex justify-between items-center">
-                  <div class="font-medium">
+                  <div class="font-medium flex items-center gap-2">
                     {set.weight === 0 ?
                       `${set.repetitions} reps` :
                       `${set.weight} kg × ${set.repetitions} reps`}
+                    {#if set.isDropset}
+                      <span class="text-xs font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">D</span>
+                    {:else if set.isMioset}
+                      <span class="text-xs font-bold bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">M</span>
+                    {/if}
                   </div>
                   <div class="text-xs text-gray-500">
                     {formatTime(set.timestamp)}

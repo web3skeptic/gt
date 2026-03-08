@@ -183,7 +183,7 @@
             <h3 class="text-lg font-semibold">{groupName}</h3>
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-600">
-                {muscles.filter(m => muscleEngagement()[m].exerciseCount > 0).length}/{muscles.length} active
+                {muscles.filter(m => muscleEngagement()[m].recoveryStatus === 'ready').length}/{muscles.length} ready
               </span>
               {#if expandedGroups[groupName]}
                 <ChevronUp size={20} />
@@ -209,9 +209,6 @@
                       </span>
                     </div>
                     <div class="text-right">
-                      <div class="text-sm font-bold text-blue-600">
-                        {data.exerciseCount > 0 ? Math.round((data.totalEngagement / data.exerciseCount) * 100) : 0}%
-                      </div>
                       <div class="text-xs text-gray-500">
                         Recovery: {muscleRecovery[muscle]}h
                       </div>
@@ -228,21 +225,12 @@
                     </div>
                   {/if}
 
-                  <!-- Engagement Bar -->
+                  <!-- Exercises List -->
                   {#if data.exerciseCount > 0}
-                    <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
-                      <div
-                        class="bg-blue-500 h-2 rounded-full transition-all"
-                        style="width: {(data.totalEngagement / data.exerciseCount) * 100}%"
-                      ></div>
-                    </div>
-
-                    <!-- Exercises List -->
                     <div class="space-y-1 mt-2">
                       {#each data.exercises as ex}
                         <div class="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
                           <span class="text-gray-700">{ex.name}</span>
-                          <span class="text-gray-500">{Math.round(ex.engagement * 100)}%</span>
                         </div>
                       {/each}
                     </div>

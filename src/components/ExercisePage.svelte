@@ -91,7 +91,9 @@
     setNewSet({
       weight: set.weight,
       repetitions: set.repetitions,
-      note: set.note || ''
+      note: set.note || '',
+      isDropset: set.isDropset || false,
+      isMioset: set.isMioset || false
     });
   };
 
@@ -112,7 +114,9 @@
                   weight: parseFloat(newSet.weight),
                   repetitions: parseInt(newSet.repetitions),
                   note: newSet.note,
-                  timestamp: updatedTimestamp
+                  timestamp: updatedTimestamp,
+                  isDropset: newSet.isDropset || false,
+                  isMioset: newSet.isMioset || false
                 };
               }
               return historySet;
@@ -129,7 +133,9 @@
       setNewSet({
         weight: '',
         repetitions: '',
-        note: ''
+        note: '',
+        isDropset: false,
+        isMioset: false
       });
     }
   };
@@ -155,7 +161,9 @@
     setNewSet({
       weight: '',
       repetitions: '',
-      note: ''
+      note: '',
+      isDropset: false,
+      isMioset: false
     });
   };
 
@@ -171,7 +179,9 @@
               weight: parseFloat(newSet.weight),
               repetitions: parseInt(newSet.repetitions),
               note: newSet.note || '',
-              timestamp: timestamp
+              timestamp: timestamp,
+              isDropset: newSet.isDropset || false,
+              isMioset: newSet.isMioset || false
             },
             ...ex.history
           ];
@@ -192,7 +202,9 @@
       setNewSet({
         weight: '',
         repetitions: '',
-        note: ''
+        note: '',
+        isDropset: false,
+        isMioset: false
       });
     }
   };
@@ -288,6 +300,23 @@
           class="w-full p-2 border rounded-md"
           placeholder="Optional"
         />
+      </div>
+
+      <div class="flex gap-2 mb-3">
+        <button
+          type="button"
+          onclick={() => setNewSet({...newSet, isDropset: !newSet.isDropset, isMioset: false})}
+          class="flex-1 py-2 rounded-md font-bold text-sm transition-colors {newSet.isDropset ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'}"
+        >
+          D
+        </button>
+        <button
+          type="button"
+          onclick={() => setNewSet({...newSet, isMioset: !newSet.isMioset, isDropset: false})}
+          class="flex-1 py-2 rounded-md font-bold text-sm transition-colors {newSet.isMioset ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-500'}"
+        >
+          M
+        </button>
       </div>
 
       {#if editingSet}

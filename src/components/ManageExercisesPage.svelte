@@ -120,14 +120,53 @@
       try {
         const data = JSON.parse(e.target.result);
 
-        if (data.exercises && Array.isArray(data.exercises)) {
-          setExercises(data.exercises);
-          localStorage.setItem('exercises', JSON.stringify(data.exercises));
-        }
+        // Support two formats:
+        // 1. Full export: { exercises, activeExercises }
+        // 2. History-only array: [{ name, history }, ...]
+        if (Array.isArray(data)) {
+          // Merge history into existing exercises, add new ones, activate all imported
+          const updatedExercises = [...exercises];
+          const newActiveNames = [...activeExercises];
 
-        if (data.activeExercises && Array.isArray(data.activeExercises)) {
-          setActiveExercises(data.activeExercises);
-          localStorage.setItem('activeExercises', JSON.stringify(data.activeExercises));
+          data.forEach(imported => {
+            const existing = updatedExercises.find(ex => ex.name === imported.name);
+            if (existing) {
+              // Merge history, deduplicate by timestamp
+              const existingTimestamps = new Set(existing.history.map(s => s.timestamp));
+              const newSets = (imported.history || []).filter(s => !existingTimestamps.has(s.timestamp));
+              existing.history = [...existing.history, ...newSets].sort((a, b) => b.timestamp - a.timestamp);
+            } else {
+              updatedExercises.push({
+                name: imported.name,
+                history: imported.history || [],
+                isHidden: false,
+                engagedMuscles: imported.engagedMuscles || []
+              });
+            }
+            if (!newActiveNames.includes(imported.name)) {
+              newActiveNames.push(imported.name);
+            }
+          });
+
+          setExercises(updatedExercises);
+          setActiveExercises(newActiveNames);
+          localStorage.setItem('exercises', JSON.stringify(updatedExercises));
+          localStorage.setItem('activeExercises', JSON.stringify(newActiveNames));
+        } else {
+          if (data.exercises && Array.isArray(data.exercises)) {
+            setExercises(data.exercises);
+            localStorage.setItem('exercises', JSON.stringify(data.exercises));
+          }
+
+          if (data.activeExercises && Array.isArray(data.activeExercises)) {
+            // Also activate any exercises that have history but aren't in activeExercises
+            const withHistory = (data.exercises || [])
+              .filter(ex => ex.history?.length > 0)
+              .map(ex => ex.name);
+            const merged = [...new Set([...data.activeExercises, ...withHistory])];
+            setActiveExercises(merged);
+            localStorage.setItem('activeExercises', JSON.stringify(merged));
+          }
         }
 
         alert('Data imported successfully!');
