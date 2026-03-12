@@ -1,28 +1,30 @@
 <script>
   import { ChevronDown, ChevronUp } from 'lucide-svelte';
   import MuscleVisualization from './MuscleVisualization.svelte';
-  import ActivityCalendar from './ActivityCalendar.svelte';
+  import { SvelteSet } from 'svelte/reactivity';
 
   let { exercises, activeExercises } = $props();
 
-  // Recovery periods in hours for each muscle
-  const muscleRecovery = {
-    biceps: 48,
-    triceps: 48,
-    deltoids: 48,
-    forearms: 24,
-    trapezius: 48,
-    pectorals: 72,
-    lats: 72,
-    erectus: 72,
-    abs: 24,
-    obliques: 24,
-    core: 24,
-    quads: 72,
-    hamstrings: 72,
-    glutes: 72,
-    calves: 24,
-    adductors: 48
+  // Exponential decay time constants per muscle (τ in hours, ~63% recovered by τ)
+  // Full recovery (~95%) ≈ 3τ
+  const muscleTau = {
+    forearms: 12, calves: 12,
+    biceps: 16, triceps: 16,
+    deltoids: 20, trapezius: 20, adductors: 20,
+    pectorals: 24, lats: 24, abs: 24, obliques: 24, core: 24,
+    quads: 28, hamstrings: 28, glutes: 28,
+    erectus: 32
+  };
+
+  // Reference fatigue score for a "hard session" (4×8 @ 80% 1RM, primary muscle)
+  // Used to normalise raw scores to 0–100%
+  const muscleReference = {
+    forearms: 300, calves: 300,
+    biceps: 400, triceps: 400,
+    deltoids: 500, trapezius: 500, adductors: 500,
+    pectorals: 650, lats: 650, abs: 400, obliques: 400, core: 400,
+    quads: 900, hamstrings: 900, glutes: 900,
+    erectus: 750
   };
 
   const muscleGroups = {
@@ -33,7 +35,7 @@
   };
 
   let expandedGroups = $state({});
-  let selectedMuscles = $state(new Set());
+  let selectedMuscles = new SvelteSet();
 
   const allMuscles = [
     'biceps', 'triceps', 'deltoids', 'forearms', 'trapezius',
@@ -41,143 +43,128 @@
     'quads', 'hamstrings', 'glutes', 'calves', 'adductors'
   ];
 
-  const DEFAULT_BODYWEIGHT_KG = 75;
-
-  // Estimate the user's bodyweight by looking across all exercise histories
-  // for sets where weight > 0 and repetitions > 0, then taking a percentile
-  // of those weights as a rough proxy. Falls back to DEFAULT_BODYWEIGHT_KG.
-  const estimatedBodyweight = $derived(() => {
-    const weights = [];
-    exercises.forEach(ex => {
-      if (!ex.history) return;
-      ex.history.forEach(set => {
-        if (set.weight > 0 && set.repetitions > 0) {
-          weights.push(set.weight);
-        }
-      });
-    });
-    if (weights.length === 0) return DEFAULT_BODYWEIGHT_KG;
-    weights.sort((a, b) => a - b);
-    // Use the median of recorded weights as a rough bodyweight proxy.
-    // This avoids outliers from very heavy barbell lifts skewing the estimate.
-    const mid = Math.floor(weights.length / 2);
-    return weights.length % 2 !== 0
-      ? weights[mid]
-      : (weights[mid - 1] + weights[mid]) / 2;
-  });
-
-  // Brzycki 1RM formula, reps capped at 10 to stay in valid range.
-  // For bodyweight exercises (weight === 0) the effective load is the
-  // user's estimated bodyweight so reps still produce a meaningful 1RM.
-  const calculateOneRepMax = (weight, reps, bodyweight) => {
-    if (reps <= 0) return null;
-    const effectiveWeight = weight > 0 ? weight : bodyweight;
-    const effectiveReps = Math.min(reps, 10);
-    return effectiveWeight * (36 / (37 - effectiveReps));
+  // Brzycki 1RM estimate (same formula as ExercisePage)
+  const brzycki1RM = (weight, reps) => {
+    if (!weight || !reps || weight <= 0 || reps <= 0) return null;
+    return weight * (36 / (37 - Math.min(reps, 10)));
   };
 
-  // Find the best 1RM from an exercise's history within the last 30 days.
-  // Handles both weighted (weight > 0) and bodyweight (weight === 0) sets.
-  const getBestOneRepMax = (exercise, bodyweight) => {
+  // Get the best 1RM estimate for an exercise from its recent history
+  const getExercise1RM = (exercise) => {
     if (!exercise.history || exercise.history.length === 0) return null;
-
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    let bestOneRM = 0;
-
+    let best = 0;
     exercise.history.forEach(set => {
-      if (!set.repetitions || set.repetitions <= 0) return;
-      if (set.timestamp < thirtyDaysAgo) return;
-      const oneRM = calculateOneRepMax(set.weight || 0, set.repetitions, bodyweight);
-      if (oneRM && oneRM > bestOneRM) {
-        bestOneRM = oneRM;
-      }
+      const est = brzycki1RM(set.weight, set.repetitions);
+      if (est && est > best) best = est;
     });
-
-    return bestOneRM > 0 ? bestOneRM : null;
+    return best > 0 ? best : null;
   };
 
-  // Calculate muscle engagement across all active exercises
-  const muscleEngagement = $derived(() => {
+  // Compute the fatigue contribution of one set for one muscle
+  // Returns a raw fatigue unit score (arbitrary units, normalised later)
+  const setFatigueScore = (weight, reps, oneRM, engagementScore) => {
+    if (!weight || !reps || !oneRM || weight <= 0 || reps <= 0) return 0;
+
+    // 1. Relative intensity (% of 1RM), clamped to realistic range
+    const intensity = Math.min(1.0, Math.max(0.3, weight / oneRM));
+
+    // 2. Intensity factor: linear scale 0.5–1.2 across 30–100% 1RM
+    const intensityFactor = 0.5 + intensity * 0.7;
+
+    // 3. Estimate reps-in-reserve (RIR) using Brzycki inverted:
+    //    max reps at this weight ≈ 36 - 36*(weight/1RM)
+    const maxRepsAtWeight = Math.max(1, Math.round(36 - 36 * intensity));
+    const rir = Math.max(0, maxRepsAtWeight - reps);
+
+    // 4. RIR multiplier: failure (RIR 0) = 1.0, RIR 3 ≈ 0.55, RIR 8+ ≈ 0.2
+    const rirMultiplier = Math.max(0.2, Math.exp(-rir * 0.2));
+
+    // 5. Volume component: sqrt(reps) × weight — diminishing returns on high reps
+    const volume = Math.sqrt(reps) * weight;
+
+    // 6. Engagement scaling: primary (0.9) ≈ full dose, synergist (0.2) ≈ 20%
+    const engagement = Math.max(0.05, engagementScore || 0);
+
+    return volume * intensityFactor * rirMultiplier * engagement;
+  };
+
+  // Main derived computation
+  const muscleEngagement = $derived.by(() => {
+    const now = Date.now();
     const muscleData = {};
-    const bodyweight = estimatedBodyweight();
 
     allMuscles.forEach(muscle => {
       muscleData[muscle] = {
-        totalEngagement: 0,
         exerciseCount: 0,
         exercises: [],
         lastWorked: null,
-        recoveryStatus: 'ready'
+        fatiguePercent: 0,
+        recoveryStatus: 'ready',
+        recoveryPercentage: 100
       };
     });
 
+    // Collect exercise/muscle relationships
     activeExercises.forEach(exName => {
       const exercise = exercises.find(ex => ex.name === exName);
-      if (exercise && exercise.engagedMuscles) {
-        // Determine whether this exercise is bodyweight-only (all recorded sets have weight === 0)
-        const isBodyweightExercise =
-          exercise.history &&
-          exercise.history.length > 0 &&
-          exercise.history.every(set => !set.weight || set.weight === 0);
+      if (!exercise || !exercise.engagedMuscles) return;
 
-        // Compute a 1RM-based intensity scalar (0–1) relative to a reference
-        // load so heavier/harder sets show proportionally higher engagement.
-        // For bodyweight exercises we use estimated bodyweight as the load.
-        // When there is no history at all we default to the base engagement value.
-        let intensityScalar = 1.0;
-        const bestOneRM = getBestOneRepMax(exercise, bodyweight);
+      exercise.engagedMuscles.forEach(({ name: muscleName, engagement }) => {
+        if (!muscleData[muscleName]) return;
+        muscleData[muscleName].exerciseCount++;
+        muscleData[muscleName].exercises.push({ name: exName, engagement });
 
-        if (bestOneRM !== null) {
-          // Reference 1RM: for bodyweight exercises use bodyweight itself,
-          // for weighted exercises use the computed best 1RM so the scalar
-          // stays bounded around 1 for near-max effort.
-          const referenceRM = isBodyweightExercise ? bodyweight : bestOneRM;
-          intensityScalar = Math.min(bestOneRM / referenceRM, 1.5);
-        }
-
-        exercise.engagedMuscles.forEach(muscle => {
-          if (muscleData[muscle.name]) {
-            const scaledEngagement = muscle.engagement * intensityScalar;
-            muscleData[muscle.name].totalEngagement += scaledEngagement;
-            muscleData[muscle.name].exerciseCount++;
-            muscleData[muscle.name].exercises.push({
-              name: exName,
-              engagement: scaledEngagement,
-              lastWorked: exercise.history && exercise.history.length > 0
-                ? exercise.history[0].timestamp
-                : null
-            });
-
-            // Update last worked date
-            if (exercise.history && exercise.history.length > 0) {
-              const lastWorkout = exercise.history[0].timestamp;
-              if (!muscleData[muscle.name].lastWorked || lastWorkout > muscleData[muscle.name].lastWorked) {
-                muscleData[muscle.name].lastWorked = lastWorkout;
-              }
-            }
+        if (exercise.history && exercise.history.length > 0) {
+          const latest = exercise.history[0].timestamp;
+          if (!muscleData[muscleName].lastWorked || latest > muscleData[muscleName].lastWorked) {
+            muscleData[muscleName].lastWorked = latest;
           }
-        });
-      }
+        }
+      });
     });
 
-    // Calculate recovery status
-    const now = Date.now();
-    Object.keys(muscleData).forEach(muscleName => {
-      const muscle = muscleData[muscleName];
-      if (muscle.lastWorked) {
-        const hoursSinceWorkout = (now - muscle.lastWorked) / (1000 * 60 * 60);
-        const recoveryHours = muscleRecovery[muscleName] || 48;
+    // Compute fatigue for each muscle using exponential decay over all history
+    allMuscles.forEach(muscleName => {
+      const md = muscleData[muscleName];
+      const tauMs = (muscleTau[muscleName] || 20) * 3600 * 1000;
+      const cutoffMs = tauMs * 4.6; // sets older than ~4.6τ contribute < 1% — skip them
 
-        if (hoursSinceWorkout < recoveryHours * 0.5) {
-          muscle.recoveryStatus = 'recovering';
-        } else if (hoursSinceWorkout < recoveryHours) {
-          muscle.recoveryStatus = 'partial';
-        } else {
-          muscle.recoveryStatus = 'ready';
-        }
-        muscle.recoveryPercentage = Math.min(100, (hoursSinceWorkout / recoveryHours) * 100);
+      let totalFatigue = 0;
+
+      activeExercises.forEach(exName => {
+        const exercise = exercises.find(ex => ex.name === exName);
+        if (!exercise || !exercise.history || !exercise.engagedMuscles) return;
+
+        const muscleEngDef = exercise.engagedMuscles.find(m => m.name === muscleName);
+        if (!muscleEngDef) return;
+
+        const oneRM = getExercise1RM(exercise);
+        if (!oneRM) return;
+
+        exercise.history.forEach(set => {
+          const ageMs = now - set.timestamp;
+          if (ageMs < 0 || ageMs > cutoffMs) return;
+
+          const decayFactor = Math.exp(-ageMs / tauMs);
+          const rawScore = setFatigueScore(set.weight, set.repetitions, oneRM, muscleEngDef.engagement);
+          totalFatigue += rawScore * decayFactor;
+        });
+      });
+
+      // Normalise to 0–100%
+      const ref = muscleReference[muscleName] || 600;
+      const fatiguePercent = Math.min(100, (totalFatigue / ref) * 100);
+
+      md.fatiguePercent = fatiguePercent;
+      // recoveryPercentage = inverse of fatigue (how recovered they are)
+      md.recoveryPercentage = Math.round(100 - fatiguePercent);
+
+      if (fatiguePercent < 15) {
+        md.recoveryStatus = 'ready';
+      } else if (fatiguePercent < 45) {
+        md.recoveryStatus = 'partial';
       } else {
-        muscle.recoveryPercentage = 100;
+        md.recoveryStatus = 'recovering';
       }
     });
 
@@ -194,7 +181,6 @@
     } else {
       selectedMuscles.add(muscleName);
     }
-    selectedMuscles = new Set(selectedMuscles);
   };
 
   const getRecoveryColor = (status) => {
@@ -205,29 +191,10 @@
       default: return '#6b7280';
     }
   };
-
-  const getMuscleColor = (muscleName) => {
-    const data = muscleEngagement()[muscleName];
-    if (data && data.exerciseCount > 0) {
-      return '#10b981'; // Light green for activated
-    }
-    return '#ef4444'; // Red for unactivated
-  };
-
-  const getMuscleOpacity = (muscleName) => {
-    const data = muscleEngagement()[muscleName];
-    if (selectedMuscles.has(muscleName)) {
-      return 0.9;
-    }
-    return data && data.exerciseCount > 0 ? 0.7 : 0.5;
-  };
 </script>
 
 <div class="p-4 pb-24">
   <h1 class="text-2xl font-bold mb-6">Muscle Engagement</h1>
-
-  <!-- Activity Calendar -->
-  <ActivityCalendar {exercises} />
 
   {#if activeExercises.length === 0}
     <div class="text-center py-8">
@@ -256,7 +223,7 @@
         </div>
       </div>
       <MuscleVisualization
-        muscleEngagement={muscleEngagement()}
+        muscleEngagement={muscleEngagement}
         {selectedMuscles}
         {toggleMuscle}
       />
@@ -264,7 +231,7 @@
 
     <!-- Muscle Groups Accordion -->
     <div class="space-y-2">
-      {#each Object.entries(muscleGroups) as [groupName, muscles]}
+      {#each Object.entries(muscleGroups) as [groupName, muscles] (groupName)}
         <div class="bg-white rounded-lg shadow">
           <button
             onclick={() => toggleGroup(groupName)}
@@ -273,7 +240,7 @@
             <h3 class="text-lg font-semibold">{groupName}</h3>
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-600">
-                {muscles.filter(m => muscleEngagement()[m].recoveryStatus === 'ready').length}/{muscles.length} ready
+                {muscles.filter(m => muscleEngagement[m].recoveryStatus === 'ready').length}/{muscles.length} ready
               </span>
               {#if expandedGroups[groupName]}
                 <ChevronUp size={20} />
@@ -285,8 +252,8 @@
 
           {#if expandedGroups[groupName]}
             <div class="px-4 pb-4 space-y-3 border-t">
-              {#each muscles as muscle}
-                {@const data = muscleEngagement()[muscle]}
+              {#each muscles as muscle (muscle)}
+                {@const data = muscleEngagement[muscle]}
                 <div class="pt-3">
                   <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
@@ -300,13 +267,13 @@
                     </div>
                     <div class="text-right">
                       <div class="text-xs text-gray-500">
-                        Recovery: {muscleRecovery[muscle]}h
+                        Fatigue: {Math.round(data.fatiguePercent)}%
                       </div>
                     </div>
                   </div>
 
                   <!-- Recovery Bar -->
-                  {#if data.lastWorked}
+                  {#if data.fatiguePercent > 0}
                     <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
                       <div
                         class="h-2 rounded-full transition-all"
@@ -318,7 +285,7 @@
                   <!-- Exercises List -->
                   {#if data.exerciseCount > 0}
                     <div class="space-y-1 mt-2">
-                      {#each data.exercises as ex}
+                      {#each data.exercises as ex (ex.name)}
                         <div class="flex items-center justify-between text-xs bg-gray-50 p-2 rounded">
                           <span class="text-gray-700">{ex.name}</span>
                         </div>
