@@ -155,14 +155,22 @@
     <!-- Muscle Visualization -->
     <div class="mb-6 bg-white p-4 rounded-lg shadow">
       <h2 class="text-lg font-semibold mb-4">Body Visualization</h2>
-      <div class="mb-4 flex gap-4 justify-center text-xs">
+      <div class="mb-4 flex gap-4 justify-center text-xs flex-wrap">
         <div class="flex items-center gap-2">
           <div class="w-4 h-4 rounded" style="background-color: #10b981;"></div>
-          <span>Activated</span>
+          <span>Ready</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-4 h-4 rounded" style="background-color: #f59e0b;"></div>
+          <span>Partial Recovery</span>
         </div>
         <div class="flex items-center gap-2">
           <div class="w-4 h-4 rounded" style="background-color: #ef4444;"></div>
-          <span>Needs Activation</span>
+          <span>Needs Recovery</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-4 h-4 rounded" style="background-color: #9ca3af;"></div>
+          <span>Not Worked</span>
         </div>
       </div>
       <MuscleVisualization

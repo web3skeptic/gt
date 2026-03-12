@@ -3,10 +3,15 @@
 
   const getMuscleColor = (muscleName) => {
     const data = muscleEngagement[muscleName];
-    if (data && data.exerciseCount > 0) {
-      return '#10b981'; // Light green for activated
+    if (!data || (!data.lastWorked && data.exerciseCount === 0)) {
+      return '#9ca3af'; // Gray for never worked
     }
-    return '#ef4444'; // Red for unactivated
+    switch (data.recoveryStatus) {
+      case 'recovering': return '#ef4444'; // Red - needs recovery
+      case 'partial': return '#f59e0b';    // Yellow - partial recovery
+      case 'ready': return '#10b981';      // Green - ready
+      default: return '#9ca3af';
+    }
   };
 
   const getMuscleOpacity = (muscleName) => {
@@ -14,7 +19,7 @@
     if (selectedMuscles.has(muscleName)) {
       return 0.9;
     }
-    return data && data.exerciseCount > 0 ? 0.7 : 0.5;
+    return data && data.lastWorked ? 0.8 : 0.4;
   };
 </script>
 

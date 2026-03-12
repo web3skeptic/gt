@@ -36,9 +36,11 @@
   });
 
   // Calculate estimated one-rep max using Brzycki formula
+  // Reps are capped at 10 — sets with more than 10 reps are treated as 10
   const calculateOneRepMax = (weight, reps) => {
-    if (weight <= 0 || reps <= 0 || reps > 10) return null;
-    return weight * (36 / (37 - reps));
+    if (weight <= 0 || reps <= 0) return null;
+    const effectiveReps = Math.min(reps, 10);
+    return weight * (36 / (37 - effectiveReps));
   };
 
   // Find the best recent set for 1RM calculation
@@ -55,7 +57,7 @@
     const historyCopy = [...currentExercise.history];
 
     historyCopy.forEach(set => {
-      if (!set.weight || set.weight <= 0 || !set.repetitions || set.repetitions <= 0 || set.repetitions > 10) return;
+      if (!set.weight || set.weight <= 0 || !set.repetitions || set.repetitions <= 0) return;
       if (set.timestamp < cutoffTime) return;
 
       const oneRM = calculateOneRepMax(set.weight, set.repetitions);
@@ -77,7 +79,7 @@
     const weight = parseFloat(newSet.weight);
     const reps = parseInt(newSet.repetitions);
 
-    if (weight > 0 && reps > 0 && reps <= 10) {
+    if (weight > 0 && reps > 0) {
       return calculateOneRepMax(weight, reps);
     }
     return null;
@@ -232,7 +234,7 @@
         {:else if recentOneRMData}
           <div class="text-sm italic">{Math.round(recentOneRMData.oneRM)} kg</div>
         {:else}
-          <div class="text-xs text-gray-300 italic">Add weight & reps (≤10) to calculate</div>
+          <div class="text-xs text-gray-300 italic">Add weight & reps to calculate</div>
         {/if}
       </div>
     </div>
