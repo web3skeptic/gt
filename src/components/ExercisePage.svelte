@@ -35,12 +35,46 @@
     }
   });
 
-  // Calculate estimated one-rep max using Brzycki formula
-  // Reps are capped at 10 — sets with more than 10 reps are treated as 10
+  const DEFAULT_BODYWEIGHT_KG = 75;
+
+  // Detect whether this exercise is bodyweight-only (all sets have weight === 0)
+  const isBodyweightExercise = $derived(
+    currentExercise.history &&
+    currentExercise.history.length > 0 &&
+    currentExercise.history.every(set => !set.weight || set.weight === 0)
+  );
+
+  // Estimate the user's bodyweight from recorded sets across all exercises.
+  // Uses the median of all non-zero weights logged as a rough proxy.
+  // Falls back to DEFAULT_BODYWEIGHT_KG when no data is available.
+  const estimatedBodyweight = $derived(() => {
+    const weights = [];
+    exercises.forEach(ex => {
+      if (!ex.history) return;
+      ex.history.forEach(set => {
+        if (set.weight > 0 && set.repetitions > 0) {
+          weights.push(set.weight);
+        }
+      });
+    });
+    if (weights.length === 0) return DEFAULT_BODYWEIGHT_KG;
+    weights.sort((a, b) => a - b);
+    const mid = Math.floor(weights.length / 2);
+    return weights.length % 2 !== 0
+      ? weights[mid]
+      : (weights[mid - 1] + weights[mid]) / 2;
+  });
+
+  // Calculate estimated one-rep max using Brzycki formula.
+  // Reps are capped at 10 — sets with more than 10 reps are treated as 10.
+  // For bodyweight exercises (weight === 0) the effective load is the
+  // estimated bodyweight so reps still produce a meaningful 1RM.
   const calculateOneRepMax = (weight, reps) => {
-    if (weight <= 0 || reps <= 0) return null;
+    if (reps <= 0) return null;
+    const effectiveWeight = (weight > 0) ? weight : estimatedBodyweight();
+    if (effectiveWeight <= 0) return null;
     const effectiveReps = Math.min(reps, 10);
-    return weight * (36 / (37 - effectiveReps));
+    return effectiveWeight * (36 / (37 - effectiveReps));
   };
 
   // Find the best recent set for 1RM calculation
@@ -57,11 +91,11 @@
     const historyCopy = [...currentExercise.history];
 
     historyCopy.forEach(set => {
-      if (!set.weight || set.weight <= 0 || !set.repetitions || set.repetitions <= 0) return;
+      if (!set.repetitions || set.repetitions <= 0) return;
       if (set.timestamp < cutoffTime) return;
 
-      const oneRM = calculateOneRepMax(set.weight, set.repetitions);
-      if (oneRM > bestOneRM) {
+      const oneRM = calculateOneRepMax(set.weight || 0, set.repetitions);
+      if (oneRM && oneRM > bestOneRM) {
         bestOneRM = oneRM;
         bestSet = set;
       }
@@ -69,8 +103,9 @@
 
     return bestSet ? {
       oneRM: bestOneRM,
-      weight: bestSet.weight,
-      reps: bestSet.repetitions
+      weight: bestSet.weight || 0,
+      reps: bestSet.repetitions,
+      isBodyweight: isBodyweightExercise
     } : null;
   };
 
@@ -79,8 +114,9 @@
     const weight = parseFloat(newSet.weight);
     const reps = parseInt(newSet.repetitions);
 
-    if (weight > 0 && reps > 0) {
-      return calculateOneRepMax(weight, reps);
+    // Allow weight === 0 for bodyweight exercises — use bodyweight as the load
+    if (reps > 0 && (weight > 0 || (newSet.weight === '0' || newSet.weight === 0))) {
+      return calculateOneRepMax(weight || 0, reps);
     }
     return null;
   };
@@ -230,11 +266,17 @@
         </div>
 
         {#if currentOneRM}
-          <div class="text-sm italic">{Math.round(currentOneRM)} kg</div>
+          <div class="text-sm italic">
+            {Math.round(currentOneRM)} kg
+            {#if isBodyweightExercise}<span class="text-xs text-gray-400">(bodyweight)</span>{/if}
+          </div>
         {:else if recentOneRMData}
-          <div class="text-sm italic">{Math.round(recentOneRMData.oneRM)} kg</div>
+          <div class="text-sm italic">
+            {Math.round(recentOneRMData.oneRM)} kg
+            {#if recentOneRMData.isBodyweight}<span class="text-xs text-gray-400">(bodyweight)</span>{/if}
+          </div>
         {:else}
-          <div class="text-xs text-gray-300 italic">Add weight & reps to calculate</div>
+          <div class="text-xs text-gray-300 italic">Add reps to calculate</div>
         {/if}
       </div>
     </div>

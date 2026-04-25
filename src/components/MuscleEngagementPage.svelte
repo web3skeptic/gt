@@ -1,6 +1,7 @@
 <script>
   import { ChevronDown, ChevronUp } from 'lucide-svelte';
   import MuscleVisualization from './MuscleVisualization.svelte';
+  import ActivityCalendar from './ActivityCalendar.svelte';
 
   let { exercises, activeExercises } = $props();
 
@@ -40,9 +41,65 @@
     'quads', 'hamstrings', 'glutes', 'calves', 'adductors'
   ];
 
+  const DEFAULT_BODYWEIGHT_KG = 75;
+
+  // Estimate the user's bodyweight by looking across all exercise histories
+  // for sets where weight > 0 and repetitions > 0, then taking a percentile
+  // of those weights as a rough proxy. Falls back to DEFAULT_BODYWEIGHT_KG.
+  const estimatedBodyweight = $derived(() => {
+    const weights = [];
+    exercises.forEach(ex => {
+      if (!ex.history) return;
+      ex.history.forEach(set => {
+        if (set.weight > 0 && set.repetitions > 0) {
+          weights.push(set.weight);
+        }
+      });
+    });
+    if (weights.length === 0) return DEFAULT_BODYWEIGHT_KG;
+    weights.sort((a, b) => a - b);
+    // Use the median of recorded weights as a rough bodyweight proxy.
+    // This avoids outliers from very heavy barbell lifts skewing the estimate.
+    const mid = Math.floor(weights.length / 2);
+    return weights.length % 2 !== 0
+      ? weights[mid]
+      : (weights[mid - 1] + weights[mid]) / 2;
+  });
+
+  // Brzycki 1RM formula, reps capped at 10 to stay in valid range.
+  // For bodyweight exercises (weight === 0) the effective load is the
+  // user's estimated bodyweight so reps still produce a meaningful 1RM.
+  const calculateOneRepMax = (weight, reps, bodyweight) => {
+    if (reps <= 0) return null;
+    const effectiveWeight = weight > 0 ? weight : bodyweight;
+    const effectiveReps = Math.min(reps, 10);
+    return effectiveWeight * (36 / (37 - effectiveReps));
+  };
+
+  // Find the best 1RM from an exercise's history within the last 30 days.
+  // Handles both weighted (weight > 0) and bodyweight (weight === 0) sets.
+  const getBestOneRepMax = (exercise, bodyweight) => {
+    if (!exercise.history || exercise.history.length === 0) return null;
+
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    let bestOneRM = 0;
+
+    exercise.history.forEach(set => {
+      if (!set.repetitions || set.repetitions <= 0) return;
+      if (set.timestamp < thirtyDaysAgo) return;
+      const oneRM = calculateOneRepMax(set.weight || 0, set.repetitions, bodyweight);
+      if (oneRM && oneRM > bestOneRM) {
+        bestOneRM = oneRM;
+      }
+    });
+
+    return bestOneRM > 0 ? bestOneRM : null;
+  };
+
   // Calculate muscle engagement across all active exercises
   const muscleEngagement = $derived(() => {
     const muscleData = {};
+    const bodyweight = estimatedBodyweight();
 
     allMuscles.forEach(muscle => {
       muscleData[muscle] = {
@@ -57,13 +114,35 @@
     activeExercises.forEach(exName => {
       const exercise = exercises.find(ex => ex.name === exName);
       if (exercise && exercise.engagedMuscles) {
+        // Determine whether this exercise is bodyweight-only (all recorded sets have weight === 0)
+        const isBodyweightExercise =
+          exercise.history &&
+          exercise.history.length > 0 &&
+          exercise.history.every(set => !set.weight || set.weight === 0);
+
+        // Compute a 1RM-based intensity scalar (0–1) relative to a reference
+        // load so heavier/harder sets show proportionally higher engagement.
+        // For bodyweight exercises we use estimated bodyweight as the load.
+        // When there is no history at all we default to the base engagement value.
+        let intensityScalar = 1.0;
+        const bestOneRM = getBestOneRepMax(exercise, bodyweight);
+
+        if (bestOneRM !== null) {
+          // Reference 1RM: for bodyweight exercises use bodyweight itself,
+          // for weighted exercises use the computed best 1RM so the scalar
+          // stays bounded around 1 for near-max effort.
+          const referenceRM = isBodyweightExercise ? bodyweight : bestOneRM;
+          intensityScalar = Math.min(bestOneRM / referenceRM, 1.5);
+        }
+
         exercise.engagedMuscles.forEach(muscle => {
           if (muscleData[muscle.name]) {
-            muscleData[muscle.name].totalEngagement += muscle.engagement;
+            const scaledEngagement = muscle.engagement * intensityScalar;
+            muscleData[muscle.name].totalEngagement += scaledEngagement;
             muscleData[muscle.name].exerciseCount++;
             muscleData[muscle.name].exercises.push({
               name: exName,
-              engagement: muscle.engagement,
+              engagement: scaledEngagement,
               lastWorked: exercise.history && exercise.history.length > 0
                 ? exercise.history[0].timestamp
                 : null
@@ -146,6 +225,9 @@
 
 <div class="p-4 pb-24">
   <h1 class="text-2xl font-bold mb-6">Muscle Engagement</h1>
+
+  <!-- Activity Calendar -->
+  <ActivityCalendar {exercises} />
 
   {#if activeExercises.length === 0}
     <div class="text-center py-8">
