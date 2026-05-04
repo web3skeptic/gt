@@ -4,18 +4,22 @@
   import AddExercisePage from './components/AddExercisePage.svelte';
   import ManageExercisesPage from './components/ManageExercisesPage.svelte';
   import MuscleEngagementPage from './components/MuscleEngagementPage.svelte';
-  import { Home, Dumbbell, Activity } from 'lucide-svelte';
+  import BodyweightPage from './components/BodyweightPage.svelte';
+  import { Home, Dumbbell, Activity, Scale } from 'lucide-svelte';
   import { initialExercises, initialActiveExercises } from './utils/initialData.js';
 
   // State using Svelte 5 runes
   let page = $state('home');
-  let activeTab = $state('exercises'); // exercises, muscles, settings
+  let activeTab = $state('exercises'); // exercises, muscles, body, settings
 
   const savedExercises = localStorage.getItem('exercises');
   let exercises = $state(savedExercises && savedExercises !== 'undefined' ? JSON.parse(savedExercises) : initialExercises);
 
   const savedActive = localStorage.getItem('activeExercises');
   let activeExercises = $state(savedActive && savedActive !== 'undefined' ? JSON.parse(savedActive) : initialActiveExercises);
+
+  const savedBodyweight = localStorage.getItem('bodyweight');
+  let bodyweight = $state(savedBodyweight && savedBodyweight !== 'undefined' ? JSON.parse(savedBodyweight) : []);
 
   let currentExercise = $state(null);
   let newExerciseName = $state('');
@@ -30,6 +34,7 @@
   $effect(() => {
     localStorage.setItem('exercises', JSON.stringify(exercises));
     localStorage.setItem('activeExercises', JSON.stringify(activeExercises));
+    localStorage.setItem('bodyweight', JSON.stringify(bodyweight));
   });
 
   // Navigation functions
@@ -97,6 +102,10 @@
     activeExercises = newActiveExercises;
   };
 
+  const setBodyweight = (newBodyweight) => {
+    bodyweight = newBodyweight;
+  };
+
   const setCurrentExercise = (exercise) => {
     currentExercise = exercise;
   };
@@ -130,16 +139,23 @@
           {exercises}
           {activeExercises}
         />
+      {:else if activeTab === 'body'}
+        <BodyweightPage
+          {bodyweight}
+          {setBodyweight}
+        />
       {:else if activeTab === 'settings'}
         <ManageExercisesPage
           {goToHome}
           {goToAddExercise}
           {exercises}
           {activeExercises}
+          {bodyweight}
           {toggleActiveExercise}
           {deleteExercise}
           {setExercises}
           {setActiveExercises}
+          {setBodyweight}
         />
       {/if}
     </div>
@@ -165,6 +181,16 @@
         >
           <Activity size={24} />
           <span class="text-xs mt-1">Muscles</span>
+        </button>
+
+        <button
+          onclick={() => setTab('body')}
+          class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+            activeTab === 'body' ? 'text-blue-500' : 'text-gray-500'
+          }"
+        >
+          <Scale size={24} />
+          <span class="text-xs mt-1">Body</span>
         </button>
 
         <button

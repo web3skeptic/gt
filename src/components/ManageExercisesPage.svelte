@@ -6,10 +6,12 @@
     goToAddExercise,
     exercises,
     activeExercises,
+    bodyweight = [],
     toggleActiveExercise,
     deleteExercise,
     setExercises,
-    setActiveExercises
+    setActiveExercises,
+    setBodyweight = () => {}
   } = $props();
 
   let expandedExercises = $state({});
@@ -81,8 +83,10 @@
     if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
       setExercises([]);
       setActiveExercises([]);
+      setBodyweight([]);
       localStorage.removeItem('exercises');
       localStorage.removeItem('activeExercises');
+      localStorage.removeItem('bodyweight');
       alert('All data cleared!');
     }
   };
@@ -91,7 +95,8 @@
   const handleExportData = () => {
     const data = {
       exercises: exercises,
-      activeExercises: activeExercises
+      activeExercises: activeExercises,
+      bodyweight: bodyweight
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -166,6 +171,15 @@
             const merged = [...new Set([...data.activeExercises, ...withHistory])];
             setActiveExercises(merged);
             localStorage.setItem('activeExercises', JSON.stringify(merged));
+          }
+
+          // Bodyweight: merge by id, dedupe — empty/missing array leaves existing records untouched
+          if (Array.isArray(data.bodyweight) && data.bodyweight.length > 0) {
+            const existingIds = new Set(bodyweight.map(r => r.id));
+            const incoming = data.bodyweight.filter(r => r && !existingIds.has(r.id));
+            const merged = [...bodyweight, ...incoming];
+            setBodyweight(merged);
+            localStorage.setItem('bodyweight', JSON.stringify(merged));
           }
         }
 

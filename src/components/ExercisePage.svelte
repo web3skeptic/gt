@@ -1,5 +1,6 @@
 <script>
-  import { ArrowLeft, Calendar, Clock, Dumbbell } from 'lucide-svelte';
+  import { ArrowLeft, Calendar, Clock, Dumbbell, Timer, X, Play } from 'lucide-svelte';
+  import { onDestroy } from 'svelte';
   import SetHistory from './common/SetHistory.svelte';
 
   let {
@@ -124,6 +125,81 @@
   const recentOneRMData = $derived(getRecentOneRepMax());
   const currentOneRM = $derived(getCurrentOneRepMax());
 
+  // Rest timer — counts down to 0 after each new set
+  const DEFAULT_TIMER_SECONDS = 180;
+  let timerRemaining = $state(0); // seconds left; 0 = idle
+  let timerIntervalId = null;
+  let timerEndAt = 0;
+
+  const clearTimerInterval = () => {
+    if (timerIntervalId !== null) {
+      clearInterval(timerIntervalId);
+      timerIntervalId = null;
+    }
+  };
+
+  // Brief audible + haptic signal when the timer hits zero
+  const signalDone = () => {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) {
+        const ctx = new Ctx();
+        const beep = (offsetSec, freq) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, ctx.currentTime + offsetSec);
+          gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + offsetSec + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + offsetSec + 0.35);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(ctx.currentTime + offsetSec);
+          osc.stop(ctx.currentTime + offsetSec + 0.4);
+        };
+        beep(0, 880);
+        beep(0.45, 880);
+        beep(0.9, 1175);
+        setTimeout(() => ctx.close(), 1500);
+      }
+    } catch {}
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  };
+
+  const tickTimer = () => {
+    const remaining = Math.max(0, Math.round((timerEndAt - Date.now()) / 1000));
+    timerRemaining = remaining;
+    if (remaining === 0) {
+      clearTimerInterval();
+      signalDone();
+    }
+  };
+
+  const startTimer = (seconds = DEFAULT_TIMER_SECONDS) => {
+    clearTimerInterval();
+    timerEndAt = Date.now() + seconds * 1000;
+    timerRemaining = seconds;
+    timerIntervalId = setInterval(tickTimer, 250);
+  };
+
+  const cancelTimer = () => {
+    clearTimerInterval();
+    timerRemaining = 0;
+  };
+
+  const adjustTimer = (deltaSeconds) => {
+    if (timerRemaining === 0) return;
+    timerEndAt += deltaSeconds * 1000;
+    tickTimer();
+  };
+
+  const formatTimer = (totalSeconds) => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  onDestroy(clearTimerInterval);
+
   const handleEditSet = (set) => {
     editingSet = set;
     setNewSet({
@@ -244,6 +320,7 @@
         isDropset: false,
         isMioset: false
       });
+      startTimer();
     }
   };
 </script>
@@ -279,6 +356,49 @@
           <div class="text-xs text-gray-300 italic">Add reps to calculate</div>
         {/if}
       </div>
+    </div>
+
+    <!-- Rest Timer -->
+    <div class="bg-white p-4 rounded-lg shadow mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <Timer size={18} class={timerRemaining > 0 ? 'text-blue-500' : 'text-gray-500'} />
+          <span class="text-sm font-medium">Rest timer</span>
+        </div>
+        <div class="text-3xl font-mono font-semibold tabular-nums {timerRemaining > 0 ? 'text-blue-600' : 'text-gray-400'}">
+          {formatTimer(timerRemaining > 0 ? timerRemaining : DEFAULT_TIMER_SECONDS)}
+        </div>
+      </div>
+
+      {#if timerRemaining > 0}
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            onclick={() => adjustTimer(-30)}
+            class="py-2 px-3 bg-gray-200 text-gray-800 rounded-md font-medium"
+          >
+            −30s
+          </button>
+          <button
+            onclick={cancelTimer}
+            class="py-2 px-3 bg-red-500 text-white rounded-md font-medium flex items-center justify-center gap-1"
+          >
+            <X size={16} /> Cancel
+          </button>
+          <button
+            onclick={() => adjustTimer(30)}
+            class="py-2 px-3 bg-gray-200 text-gray-800 rounded-md font-medium"
+          >
+            +30s
+          </button>
+        </div>
+      {:else}
+        <button
+          onclick={() => startTimer()}
+          class="w-full py-2 px-3 bg-blue-500 text-white rounded-md font-medium flex items-center justify-center gap-1"
+        >
+          <Play size={16} /> Start
+        </button>
+      {/if}
     </div>
 
     <div class="bg-white p-4 rounded-lg shadow mb-6">
