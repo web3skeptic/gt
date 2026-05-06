@@ -51,12 +51,6 @@
 <div class="p-4">
   <div class="flex justify-between items-center mb-6">
     <h1 class="text-2xl font-bold">Gym Tracker</h1>
-    <button
-      onclick={goToManageExercises}
-      class="px-3 py-1 bg-gray-200 rounded-md text-sm"
-    >
-      Manage
-    </button>
   </div>
 
   {#if activeExercises.length > 0}

@@ -5,7 +5,8 @@
   import ManageExercisesPage from './components/ManageExercisesPage.svelte';
   import MuscleEngagementPage from './components/MuscleEngagementPage.svelte';
   import BodyweightPage from './components/BodyweightPage.svelte';
-  import { Home, Dumbbell, Activity, Scale } from 'lucide-svelte';
+  import GlobalTimer from './components/GlobalTimer.svelte';
+  import { Dumbbell, Activity, Scale, Settings } from 'lucide-svelte';
   import { initialExercises, initialActiveExercises } from './utils/initialData.js';
 
   // State using Svelte 5 runes
@@ -128,6 +129,9 @@
     <!-- Tab Content -->
     <div class="max-w-4xl mx-auto">
       {#if activeTab === 'exercises'}
+        <div class="px-4 pt-4">
+          <GlobalTimer />
+        </div>
         <HomePage
           {activeExercises}
           {exercises}
@@ -138,6 +142,7 @@
         <MuscleEngagementPage
           {exercises}
           {activeExercises}
+          {bodyweight}
         />
       {:else if activeTab === 'body'}
         <BodyweightPage
@@ -169,7 +174,7 @@
             activeTab === 'exercises' ? 'text-blue-500' : 'text-gray-500'
           }"
         >
-          <Home size={24} />
+          <Dumbbell size={24} />
           <span class="text-xs mt-1">Exercises</span>
         </button>
 
@@ -199,7 +204,7 @@
             activeTab === 'settings' ? 'text-blue-500' : 'text-gray-500'
           }"
         >
-          <Dumbbell size={24} />
+          <Settings size={24} />
           <span class="text-xs mt-1">Settings</span>
         </button>
       </div>

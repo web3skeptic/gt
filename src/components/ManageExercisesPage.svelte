@@ -1,5 +1,5 @@
 <script>
-  import { ArrowLeft, Plus, Trash2, Download, Upload, ChevronDown, ChevronUp, Edit2, X, Check, Search } from 'lucide-svelte';
+  import { Plus, Trash2, Download, Upload, ChevronDown, ChevronUp, Edit2, X, Check, Search } from 'lucide-svelte';
 
   let {
     goToHome,
@@ -196,12 +196,7 @@
 </script>
 
 <div class="p-4">
-  <div class="flex items-center mb-6">
-    <button onclick={goToHome} class="mr-2">
-      <ArrowLeft size={20} />
-    </button>
-    <h1 class="text-xl font-bold">Manage Exercises</h1>
-  </div>
+  <h1 class="text-xl font-bold mb-6">Manage Exercises</h1>
 
   <!-- Statistics Section -->
   <div class="mb-4 bg-white p-4 rounded-lg shadow">

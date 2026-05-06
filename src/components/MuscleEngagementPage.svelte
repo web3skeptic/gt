@@ -3,7 +3,7 @@
   import MuscleVisualization from './MuscleVisualization.svelte';
   import { SvelteSet } from 'svelte/reactivity';
 
-  let { exercises, activeExercises } = $props();
+  let { exercises, activeExercises, bodyweight = [] } = $props();
 
   // Exponential decay time constants per muscle (τ in hours, ~63% recovered by τ)
   // Full recovery (~95%) ≈ 3τ
@@ -49,12 +49,39 @@
     return weight * (36 / (37 - Math.min(reps, 10)));
   };
 
+  // Bodyweight records sorted oldest → newest (memoised via $derived below).
+  // For a set logged at `timestamp`, the user's effective bodyweight is the
+  // most recent bodyweight record at-or-before that time; if no record exists
+  // yet, fall back to the earliest record we have.
+  const sortedBodyweight = $derived(
+    [...(bodyweight || [])].sort((a, b) => a.timestamp - b.timestamp)
+  );
+
+  const bodyweightAt = (timestamp) => {
+    const list = sortedBodyweight;
+    if (list.length === 0) return null;
+    let result = list[0].weight;
+    for (const rec of list) {
+      if (rec.timestamp <= timestamp) result = rec.weight;
+      else break;
+    }
+    return result;
+  };
+
+  // Effective load for a set: explicit weight, or the user's bodyweight at
+  // the time of the set when weight is 0 (pullups, dips, etc.).
+  const effectiveWeight = (set) => {
+    if (set.weight && set.weight > 0) return set.weight;
+    return bodyweightAt(set.timestamp);
+  };
+
   // Get the best 1RM estimate for an exercise from its recent history
   const getExercise1RM = (exercise) => {
     if (!exercise.history || exercise.history.length === 0) return null;
     let best = 0;
     exercise.history.forEach(set => {
-      const est = brzycki1RM(set.weight, set.repetitions);
+      const w = effectiveWeight(set);
+      const est = brzycki1RM(w, set.repetitions);
       if (est && est > best) best = est;
     });
     return best > 0 ? best : null;
@@ -145,8 +172,9 @@
           const ageMs = now - set.timestamp;
           if (ageMs < 0 || ageMs > cutoffMs) return;
 
+          const w = effectiveWeight(set);
           const decayFactor = Math.exp(-ageMs / tauMs);
-          const rawScore = setFatigueScore(set.weight, set.repetitions, oneRM, muscleEngDef.engagement);
+          const rawScore = setFatigueScore(w, set.repetitions, oneRM, muscleEngDef.engagement);
           totalFatigue += rawScore * decayFactor;
         });
       });
