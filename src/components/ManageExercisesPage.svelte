@@ -1,5 +1,6 @@
 <script>
   import { Plus, Trash2, Download, Upload, ChevronDown, ChevronUp, Edit2, X, Check, Search } from 'lucide-svelte';
+  import ConfirmDialog from './common/ConfirmDialog.svelte';
 
   let {
     goToHome,
@@ -18,6 +19,8 @@
   let editingExercise = $state(null);
   let editMuscles = $state([]);
   let searchQuery = $state('');
+  let deleteExerciseConfirmation = $state(null);
+  let clearAllConfirmation = $state(false);
 
   const availableMuscles = [
     'biceps', 'triceps', 'deltoids', 'forearms', 'trapezius',
@@ -78,17 +81,14 @@
     editMuscles = editMuscles.filter(m => m.name !== muscleName);
   };
 
-  // Function to clear all data
   const handleClearAllData = () => {
-    if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
-      setExercises([]);
-      setActiveExercises([]);
-      setBodyweight([]);
-      localStorage.removeItem('exercises');
-      localStorage.removeItem('activeExercises');
-      localStorage.removeItem('bodyweight');
-      alert('All data cleared!');
-    }
+    setExercises([]);
+    setActiveExercises([]);
+    setBodyweight([]);
+    localStorage.removeItem('exercises');
+    localStorage.removeItem('activeExercises');
+    localStorage.removeItem('bodyweight');
+    clearAllConfirmation = false;
   };
 
   // Function to export data as JSON file
@@ -252,7 +252,7 @@
     </div>
 
     <button
-      onclick={handleClearAllData}
+      onclick={() => clearAllConfirmation = true}
       class="w-full flex items-center justify-center px-3 py-2 bg-red-500 text-white rounded-md text-sm"
     >
       <Trash2 size={16} class="mr-1" />
@@ -307,7 +307,7 @@
                 {/if}
               </button>
               <button
-                onclick={() => deleteExercise(exercise.name)}
+                onclick={() => deleteExerciseConfirmation = exercise.name}
                 class="text-red-500 hover:text-red-700"
               >
                 <Trash2 size={18} />
@@ -425,4 +425,21 @@
       </div>
     {/if}
   {/if}
+
+  <ConfirmDialog
+    open={!!deleteExerciseConfirmation}
+    message={`Are you sure you want to delete "${deleteExerciseConfirmation}"? This will remove all of its history.`}
+    onCancel={() => deleteExerciseConfirmation = null}
+    onConfirm={() => {
+      deleteExercise(deleteExerciseConfirmation);
+      deleteExerciseConfirmation = null;
+    }}
+  />
+
+  <ConfirmDialog
+    open={clearAllConfirmation}
+    message="Are you sure you want to clear all data? This will delete every exercise, history, and bodyweight record. This cannot be undone."
+    onCancel={() => clearAllConfirmation = false}
+    onConfirm={handleClearAllData}
+  />
 </div>

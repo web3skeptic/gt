@@ -1,5 +1,5 @@
 <script>
-  import { ArrowLeft, Calendar, Clock, Dumbbell } from 'lucide-svelte';
+  import { Calendar, Clock, Dumbbell } from 'lucide-svelte';
   import SetHistory from './common/SetHistory.svelte';
   import { restTimer } from '../stores/timerStore.svelte.js';
 
@@ -282,12 +282,7 @@
       </div>
     {/if}
 
-    <div class="flex items-center mb-6">
-      <button onclick={goToHome} class="mr-2">
-        <ArrowLeft size={20} />
-      </button>
-      <h1 class="text-xl font-bold">{currentExercise.name}</h1>
-    </div>
+    <h1 class="text-xl font-bold mb-6">{currentExercise.name}</h1>
 
     <!-- One Rep Max Calculator Section - Compact Version -->
     <div class="bg-white p-3 rounded-lg shadow mb-4">

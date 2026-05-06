@@ -45,18 +45,19 @@
   const submitForm = () => {
     const weight = parseFloat(formWeight);
     if (!weight || weight <= 0) return;
-    if (!formDate) return;
 
-    const timestamp = fromLocalInputs(formDate, formTime);
     const note = formNote.trim();
 
     if (editingId) {
+      if (!formDate) return;
+      const timestamp = fromLocalInputs(formDate, formTime);
       setBodyweight(
         bodyweight.map(r =>
           r.id === editingId ? { ...r, weight, timestamp, note } : r
         )
       );
     } else {
+      const timestamp = Date.now();
       const id = `${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
       setBodyweight([...bodyweight, { id, timestamp, weight, note }]);
     }
@@ -336,26 +337,28 @@
         />
       </div>
 
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label for="bw-date" class="block text-xs text-gray-600 mb-1">Date</label>
-          <input
-            id="bw-date"
-            type="date"
-            bind:value={formDate}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+      {#if editingId}
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label for="bw-date" class="block text-xs text-gray-600 mb-1">Date</label>
+            <input
+              id="bw-date"
+              type="date"
+              bind:value={formDate}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label for="bw-time" class="block text-xs text-gray-600 mb-1">Time</label>
+            <input
+              id="bw-time"
+              type="time"
+              bind:value={formTime}
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
-        <div>
-          <label for="bw-time" class="block text-xs text-gray-600 mb-1">Time</label>
-          <input
-            id="bw-time"
-            type="time"
-            bind:value={formTime}
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </div>
+      {/if}
 
       <div>
         <label for="bw-note" class="block text-xs text-gray-600 mb-1">Note (optional)</label>
@@ -370,7 +373,7 @@
 
       <button
         onclick={submitForm}
-        disabled={!formWeight || !formDate}
+        disabled={!formWeight || (editingId && !formDate)}
         class="w-full flex items-center justify-center px-3 py-2 bg-blue-500 text-white rounded-md disabled:bg-gray-300"
       >
         {#if editingId}

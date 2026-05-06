@@ -165,50 +165,6 @@
       {/if}
     </div>
 
-    <!-- Bottom Tab Navigation -->
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
-      <div class="max-w-4xl mx-auto flex justify-around">
-        <button
-          onclick={() => setTab('exercises')}
-          class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
-            activeTab === 'exercises' ? 'text-blue-500' : 'text-gray-500'
-          }"
-        >
-          <Dumbbell size={24} />
-          <span class="text-xs mt-1">Exercises</span>
-        </button>
-
-        <button
-          onclick={() => setTab('muscles')}
-          class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
-            activeTab === 'muscles' ? 'text-blue-500' : 'text-gray-500'
-          }"
-        >
-          <Activity size={24} />
-          <span class="text-xs mt-1">Muscles</span>
-        </button>
-
-        <button
-          onclick={() => setTab('body')}
-          class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
-            activeTab === 'body' ? 'text-blue-500' : 'text-gray-500'
-          }"
-        >
-          <Scale size={24} />
-          <span class="text-xs mt-1">Body</span>
-        </button>
-
-        <button
-          onclick={() => setTab('settings')}
-          class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
-            activeTab === 'settings' ? 'text-blue-500' : 'text-gray-500'
-          }"
-        >
-          <Settings size={24} />
-          <span class="text-xs mt-1">Settings</span>
-        </button>
-      </div>
-    </div>
   {:else if page === 'exercise'}
     <ExercisePage
       {currentExercise}
@@ -240,4 +196,49 @@
       {setActiveExercises}
     />
   {/if}
+
+  <!-- Bottom Tab Navigation -->
+  <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+    <div class="max-w-4xl mx-auto flex justify-around">
+      <button
+        onclick={() => setTab('exercises')}
+        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+          page === 'home' && activeTab === 'exercises' ? 'text-blue-500' : 'text-gray-500'
+        }"
+      >
+        <Dumbbell size={24} />
+        <span class="text-xs mt-1">Exercises</span>
+      </button>
+
+      <button
+        onclick={() => setTab('muscles')}
+        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+          page === 'home' && activeTab === 'muscles' ? 'text-blue-500' : 'text-gray-500'
+        }"
+      >
+        <Activity size={24} />
+        <span class="text-xs mt-1">Muscles</span>
+      </button>
+
+      <button
+        onclick={() => setTab('body')}
+        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+          page === 'home' && activeTab === 'body' ? 'text-blue-500' : 'text-gray-500'
+        }"
+      >
+        <Scale size={24} />
+        <span class="text-xs mt-1">Body</span>
+      </button>
+
+      <button
+        onclick={() => setTab('settings')}
+        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+          page === 'home' && activeTab === 'settings' ? 'text-blue-500' : 'text-gray-500'
+        }"
+      >
+        <Settings size={24} />
+        <span class="text-xs mt-1">Settings</span>
+      </button>
+    </div>
+  </div>
 </div>

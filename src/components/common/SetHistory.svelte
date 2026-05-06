@@ -1,6 +1,7 @@
 <script>
   import { formatDate, getDateString } from '../../utils/formatters.js';
-  import { Edit, Trash2, AlertTriangle } from 'lucide-svelte';
+  import { Edit, Trash2 } from 'lucide-svelte';
+  import ConfirmDialog from './ConfirmDialog.svelte';
 
   let { history, onEditSet, onDeleteSet } = $props();
 
@@ -46,38 +47,16 @@
   <p class="text-gray-500 text-center py-4">No sets recorded yet</p>
 {:else}
   <div class="space-y-6 relative">
-    <!-- Delete Confirmation Dialog -->
-    {#if deleteConfirmation}
-      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-        <div class="bg-white rounded-lg p-4 max-w-sm w-full mx-4 shadow-lg">
-          <div class="flex items-center mb-4 text-amber-600">
-            <AlertTriangle class="mr-2" size={24} />
-            <h3 class="font-bold text-lg">Confirm Deletion</h3>
-          </div>
-          <p class="mb-6">
-            Are you sure you want to delete this set of {deleteConfirmation.weight} kg × {deleteConfirmation.repetitions} reps?
-          </p>
-          <div class="flex justify-end space-x-3">
-            <button
-              class="px-4 py-2 bg-gray-200 rounded-md"
-              onclick={() => deleteConfirmation = null}
-            >
-              Cancel
-            </button>
-            <button
-              class="px-4 py-2 bg-red-500 text-white rounded-md"
-              onclick={() => {
-                onDeleteSet(deleteConfirmation);
-                deleteConfirmation = null;
-                activeItem = null;
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    {/if}
+    <ConfirmDialog
+      open={!!deleteConfirmation}
+      message={deleteConfirmation ? `Are you sure you want to delete this set of ${deleteConfirmation.weight} kg × ${deleteConfirmation.repetitions} reps?` : ''}
+      onCancel={() => deleteConfirmation = null}
+      onConfirm={() => {
+        onDeleteSet(deleteConfirmation);
+        deleteConfirmation = null;
+        activeItem = null;
+      }}
+    />
 
     {#each groupedSets as [dateString, sets]}
       {@const allZeroWeight = sets.every(set => set.weight === 0)}
