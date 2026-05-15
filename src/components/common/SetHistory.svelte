@@ -49,7 +49,11 @@
   <div class="space-y-6 relative">
     <ConfirmDialog
       open={!!deleteConfirmation}
-      message={deleteConfirmation ? `Are you sure you want to delete this set of ${deleteConfirmation.weight} kg × ${deleteConfirmation.repetitions} reps?` : ''}
+      message={deleteConfirmation
+        ? (deleteConfirmation.weight === 0
+            ? `Are you sure you want to delete this set of ${deleteConfirmation.repetitions} reps?`
+            : `Are you sure you want to delete this set of ${deleteConfirmation.weight} kg × ${deleteConfirmation.repetitions} reps?`)
+        : ''}
       onCancel={() => deleteConfirmation = null}
       onConfirm={() => {
         onDeleteSet(deleteConfirmation);

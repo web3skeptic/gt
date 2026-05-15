@@ -137,10 +137,14 @@
   };
 
   const handleUpdateSet = () => {
-    if (newSet.weight !== '' && newSet.repetitions !== '') {
+    if (newSet.repetitions !== '') {
       const updatedTimestamp = new Date(
         `${dateTime.date}T${dateTime.time}`
       ).getTime();
+
+      const parsedWeight = newSet.weight === '' || newSet.weight === null || newSet.weight === undefined
+        ? 0
+        : parseFloat(newSet.weight) || 0;
 
       const updatedExercises = exercises.map(ex => {
         if (ex.name === currentExercise.name) {
@@ -150,7 +154,7 @@
               if (historySet.timestamp === editingSet.timestamp) {
                 return {
                   ...historySet,
-                  weight: parseFloat(newSet.weight),
+                  weight: parsedWeight,
                   repetitions: parseInt(newSet.repetitions),
                   note: newSet.note,
                   timestamp: updatedTimestamp,
@@ -207,15 +211,19 @@
   };
 
   const handleAddSet = () => {
-    if (newSet.weight !== '' && newSet.repetitions !== '') {
+    if (newSet.repetitions !== '') {
       const now = new Date();
       const timestamp = now.getTime();
+
+      const parsedWeight = newSet.weight === '' || newSet.weight === null || newSet.weight === undefined
+        ? 0
+        : parseFloat(newSet.weight) || 0;
 
       const updatedExercises = exercises.map(ex => {
         if (ex.name === currentExercise.name) {
           const newHistory = [
             {
-              weight: parseFloat(newSet.weight),
+              weight: parsedWeight,
               repetitions: parseInt(newSet.repetitions),
               note: newSet.note || '',
               timestamp: timestamp,
@@ -322,6 +330,7 @@
             oninput={(e) => setNewSet({...newSet, weight: e.target.value})}
             class="w-full p-2 border rounded-md"
             step="0.5"
+            placeholder="Optional (0)"
           />
         </div>
         <div>
@@ -400,9 +409,9 @@
           </button>
           <button
             onclick={handleUpdateSet}
-            disabled={newSet.weight === '' || newSet.repetitions === '' || !dateTime.date || !dateTime.time}
+            disabled={newSet.repetitions === '' || !dateTime.date || !dateTime.time}
             class="py-2 px-4 rounded-md {
-              newSet.weight === '' || newSet.repetitions === '' || !dateTime.date || !dateTime.time
+              newSet.repetitions === '' || !dateTime.date || !dateTime.time
                 ? 'bg-gray-300 text-gray-500'
                 : 'bg-blue-500 text-white'
             }"
@@ -413,9 +422,9 @@
       {:else}
         <button
           onclick={handleAddSet}
-          disabled={newSet.weight === '' || newSet.repetitions === ''}
+          disabled={newSet.repetitions === ''}
           class="w-full py-2 rounded-md {
-            newSet.weight === '' || newSet.repetitions === ''
+            newSet.repetitions === ''
               ? 'bg-gray-300 text-gray-500'
               : 'bg-blue-500 text-white'
           }"
