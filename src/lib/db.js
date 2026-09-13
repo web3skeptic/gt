@@ -274,3 +274,36 @@ function describe(err) {
   if (err.status === 404) return 'database not found';
   return err.message || err.reason || err.name || String(err);
 }
+
+// ---------------------------------------------------------------- bluetooth scale (desktop)
+// Readings come from the Electron shell (see electron/scale.cjs); each becomes a `weight`
+// document in the same shape the Python importer writes for the Beurer BF500.
+export const scaleAvailable = () => typeof window !== 'undefined' && !!window.gtDesktop?.readScale;
+
+export async function readScaleIntoDb(onProgress = () => {}) {
+  const desktop = window.gtDesktop;
+  const stop = desktop.onScaleProgress(onProgress);
+  try {
+    const { readings, timedOut } = await desktop.readScale();
+    const docs = [];
+    for (const r of readings) {
+      const t = datumTime(Date.parse(r.scaleTime));          // the scale's clock, local time
+      const data = {
+        field: 'weight', weightKg: r.weightKg, occurTime: t, source: 'beurer-bf500',
+        userIndex: r.userIndex, heightM: r.heightM, bmi: r.bmi,
+        receivedAt: datumTime(Date.parse(r.receivedAt)), raw: r.raw
+      };
+      if (r.bodyComposition) data.bodyComposition = r.bodyComposition;
+      const now = datumTime(Date.now());
+      docs.push({ _id: `weight:${t.utc}`, data, meta: { humanId: humanId(), createTime: now, modifyTime: now } });
+    }
+    let added = 0;
+    if (docs.length) {
+      const res = await local.bulkDocs(docs);   // goes through the change feed, so the UI updates itself
+      added = res.filter(r => r.ok).length;
+    }
+    return { readings: readings.length, added, timedOut };
+  } finally {
+    stop();
+  }
+}

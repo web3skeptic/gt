@@ -1,6 +1,28 @@
 <script>
   import { Plus, Edit2, Trash2, X, Check, FileText, ChevronDown, ChevronUp } from 'lucide-svelte';
   import { formatDate } from '../utils/formatters.js';
+  import { Bluetooth } from 'lucide-svelte';
+  import { scaleAvailable, readScaleIntoDb } from '../lib/db.js';
+
+  // Bluetooth scale (desktop app only)
+  const hasScale = scaleAvailable();
+  let scaleBusy = $state(false);
+  let scaleStatus = $state('');
+
+  const handleReadScale = async () => {
+    scaleBusy = true;
+    scaleStatus = 'Starting the scale reader… step on the scale and wait for "APP" on its display.';
+    try {
+      const { readings, added, timedOut } = await readScaleIntoDb((line) => { scaleStatus = line; });
+      scaleStatus = readings === 0
+        ? (timedOut ? 'No reading received (timed out).' : 'No reading received.')
+        : `${added} new reading${added === 1 ? '' : 's'} added${readings > added ? ` (${readings - added} already present)` : ''}.`;
+    } catch (e) {
+      scaleStatus = 'Scale reading failed: ' + (e.message || e);
+    } finally {
+      scaleBusy = false;
+    }
+  };
 
   let { bodyweight, setBodyweight } = $props();
 
@@ -305,6 +327,22 @@
 
 <div class="p-4 pb-24">
   <h1 class="text-2xl font-bold mb-6">Bodyweight</h1>
+
+  {#if hasScale}
+    <div class="bg-white rounded-lg shadow p-4 mb-4">
+      <button
+        onclick={handleReadScale}
+        disabled={scaleBusy}
+        class="w-full flex items-center justify-center px-3 py-2 bg-blue-500 text-white rounded-md disabled:opacity-60"
+      >
+        <Bluetooth size={16} class="mr-1" />
+        {scaleBusy ? 'Reading the scale…' : 'Read scale'}
+      </button>
+      {#if scaleStatus}
+        <p class="text-xs text-gray-600 mt-2">{scaleStatus}</p>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Section 1: Add / Edit -->
   <div class="mb-6 bg-white p-4 rounded-lg shadow">

@@ -1,7 +1,8 @@
 // Electron shell for the gym tracker. Loads the production build from dist/ over a private
 // app:// scheme (so the renderer has a real origin for CORS) and lets the app sync with the
 // CouchDB configured under Settings → Sync — by default the local instance on 127.0.0.1:5984.
-const { app, BrowserWindow, protocol, net, shell, session } = require('electron');
+const { app, BrowserWindow, protocol, net, shell, ipcMain } = require('electron');
+const scale = require('./scale.cjs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -44,6 +45,22 @@ function createWindow() {
   win.loadURL(`${SCHEME}://${HOST}/gt/`);
   return win;
 }
+
+let scaleBusy = false;
+ipcMain.handle('scale:configured', () => {
+  try { return !!scale.loadConfig(app.getPath('userData')); } catch { return false; }
+});
+ipcMain.handle('scale:read', async (event) => {
+  if (scaleBusy) throw new Error('a scale reading is already running');
+  const cfg = scale.loadConfig(app.getPath('userData'));
+  if (!cfg) throw new Error(`no scale.json in ${app.getPath('userData')}`);
+  scaleBusy = true;
+  try {
+    return await scale.readScale(cfg, (line) => { if (!event.sender.isDestroyed()) event.sender.send('scale:progress', line); });
+  } finally {
+    scaleBusy = false;
+  }
+});
 
 app.whenReady().then(() => {
   serveDist();
