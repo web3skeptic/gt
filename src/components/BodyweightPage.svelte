@@ -24,7 +24,15 @@
     }
   };
 
-  let { bodyweight, setBodyweight } = $props();
+  let { bodyweight, setBodyweight, profile = {} } = $props();
+
+  const heightM = $derived(profile?.heightCm ? profile.heightCm / 100 : null);
+  const bmiFor = (kg) => (heightM && kg > 0 ? Math.round((kg / (heightM * heightM)) * 10) / 10 : null);
+  const COMP_FIELDS = [
+    { key: 'fatPct', label: 'Fat %', short: 'fat' },
+    { key: 'waterPct', label: 'Water %', short: 'water' },
+    { key: 'musclePct', label: 'Muscle %', short: 'muscle' }
+  ];
 
   const pad = (n) => String(n).padStart(2, '0');
 
@@ -49,7 +57,10 @@
   let formDate = $state(toLocalDateInput(now));
   let formTime = $state(toLocalTimeInput(now));
   let formNote = $state('');
+  let formComp = $state({ fatPct: '', waterPct: '', musclePct: '' });
+  let formBmi = $state('');
   let editingId = $state(null);
+  let editingRecord = null;   // the record being edited, to keep fields the form does not show
 
   const sortedRecords = $derived(
     [...bodyweight].sort((a, b) => b.timestamp - a.timestamp)
@@ -61,7 +72,21 @@
     formDate = toLocalDateInput(t);
     formTime = toLocalTimeInput(t);
     formNote = '';
+    formComp = { fatPct: '', waterPct: '', musclePct: '' };
+    formBmi = '';
     editingId = null;
+    editingRecord = null;
+  };
+
+  // extra fields from the form: body composition (merged over what the record already had) and BMI
+  const formExtras = (weight, existing) => {
+    const comp = { ...(existing?.bodyComposition || {}) };
+    for (const { key } of COMP_FIELDS) {
+      const v = formComp[key];
+      if (v === '' || v === null) delete comp[key]; else comp[key] = parseFloat(v);
+    }
+    const bmi = formBmi !== '' ? parseFloat(formBmi) : bmiFor(weight);
+    return { ...(Object.keys(comp).length ? { bodyComposition: comp } : {}), ...(bmi ? { bmi } : {}) };
   };
 
   const submitForm = () => {
@@ -74,14 +99,16 @@
       if (!formDate) return;
       const timestamp = fromLocalInputs(formDate, formTime);
       setBodyweight(
-        bodyweight.map(r =>
-          r.id === editingId ? { ...r, weight, timestamp, note } : r
-        )
+        bodyweight.map(r => {
+          if (r.id !== editingId) return r;
+          const { bodyComposition: _c, bmi: _b, ...rest } = r;
+          return { ...rest, weight, timestamp, note, ...formExtras(weight, r) };
+        })
       );
     } else {
       const timestamp = Date.now();
       const id = `${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
-      setBodyweight([...bodyweight, { id, timestamp, weight, note }]);
+      setBodyweight([...bodyweight, { id, timestamp, weight, note, ...formExtras(weight, null) }]);
     }
     resetForm();
   };
@@ -92,6 +119,9 @@
     formDate = toLocalDateInput(record.timestamp);
     formTime = toLocalTimeInput(record.timestamp);
     formNote = record.note || '';
+    editingRecord = record;
+    formComp = Object.fromEntries(COMP_FIELDS.map(({ key }) => [key, record.bodyComposition?.[key] ?? '']));
+    formBmi = record.bmi ?? '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -409,6 +439,39 @@
         ></textarea>
       </div>
 
+      <div class="grid grid-cols-4 gap-2">
+        {#each COMP_FIELDS as f (f.key)}
+          <div>
+            <label for={'bw-' + f.key} class="block text-xs text-gray-600 mb-1">{f.label}</label>
+            <input
+              id={'bw-' + f.key}
+              type="number"
+              step="0.1"
+              min="0"
+              inputmode="decimal"
+              bind:value={formComp[f.key]}
+              class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        {/each}
+        <div>
+          <label for="bw-bmi" class="block text-xs text-gray-600 mb-1">BMI</label>
+          <input
+            id="bw-bmi"
+            type="number"
+            step="0.1"
+            min="0"
+            inputmode="decimal"
+            bind:value={formBmi}
+            placeholder={formWeight && bmiFor(parseFloat(formWeight)) ? String(bmiFor(parseFloat(formWeight))) : ''}
+            class="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+      {#if heightM}
+        <p class="text-xs text-gray-400">BMI is filled in from your height ({profile.heightCm} cm, set under Settings) when left empty.</p>
+      {/if}
+
       <button
         onclick={submitForm}
         disabled={!formWeight || (editingId && !formDate)}
@@ -534,10 +597,29 @@
         {#each sortedRecords as record (record.id)}
           <div class="flex items-start justify-between bg-gray-50 px-3 py-2 rounded">
             <div class="min-w-0 flex-1 mr-2">
-              <div class="text-sm font-semibold">{record.weight} kg</div>
+              <div class="text-sm font-semibold">
+                {record.weight} kg
+                {#if record.bmi ?? bmiFor(record.weight)}<span class="text-xs font-normal text-gray-500 ml-1">BMI {record.bmi ?? bmiFor(record.weight)}</span>{/if}
+              </div>
               <div class="text-xs text-gray-600">
                 {formatDate(record.timestamp)} · {toLocalTimeInput(record.timestamp)}
+                {#if record.source && record.source !== 'gym-tracker'}<span class="text-gray-400"> · {record.source}</span>{/if}
               </div>
+              {#if record.bodyComposition}
+                <div class="flex flex-wrap gap-1 mt-1">
+                  {#each COMP_FIELDS as f (f.key)}
+                    {#if record.bodyComposition[f.key] !== undefined}
+                      <span class="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{f.short} {record.bodyComposition[f.key]}%</span>
+                    {/if}
+                  {/each}
+                  {#if record.bodyComposition.bodyWaterMassKg !== undefined}
+                    <span class="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">water {record.bodyComposition.bodyWaterMassKg} kg</span>
+                  {/if}
+                  {#if record.bodyComposition.softLeanMassKg !== undefined}
+                    <span class="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">lean {record.bodyComposition.softLeanMassKg} kg</span>
+                  {/if}
+                </div>
+              {/if}
               {#if record.note}
                 <div class="text-xs text-gray-700 mt-1 whitespace-pre-wrap break-words">{record.note}</div>
               {/if}

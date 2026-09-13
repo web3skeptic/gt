@@ -8,11 +8,12 @@
 //   exercise:<name>                          catalog entry (muscles, hidden, active, order)
 //   gym:<utc>_<exercise>_<kg>x<reps>         one document per set
 //   weight:<utc>                             one document per bodyweight record
+//   profile:body                             things that rarely change (height)
 import PouchDB from 'pouchdb-browser';
 import { setStatus } from './syncStatus.svelte.js';
 
 export const LOCAL_DB_NAME = 'organizer';
-const MANAGED_FIELDS = new Set(['exercise', 'gym', 'weight']);
+const MANAGED_FIELDS = new Set(['exercise', 'gym', 'weight', 'profile']);
 const SYNC_KEY = 'gt-sync';
 const SET_ID_STRUCTURE = '%occurTime%_%exercise%_%weightKg%x%reps%';
 
@@ -66,7 +67,7 @@ function deepEqual(a, b) {
 
 // ---------------------------------------------------------------- model <-> documents
 // UI model -> Map<_id, {data, idStructure?}>
-export function stateToDocs({ exercises, activeExercises, bodyweight }) {
+export function stateToDocs({ exercises, activeExercises, bodyweight, profile }) {
   const out = new Map();
   const active = new Set(activeExercises || []);
   (exercises || []).forEach((ex, i) => {
@@ -101,15 +102,40 @@ export function stateToDocs({ exercises, activeExercises, bodyweight }) {
     const data = { field: 'weight', weightKg: num(b.weight), occurTime: t, source: b.source || 'gym-tracker' };
     if (b.id && !String(b.id).startsWith('weight:')) data.sourceId = b.id;
     if (b.note) data.note = b.note;
+    if (Number.isFinite(Number(b.bmi)) && b.bmi !== '' && b.bmi !== null) data.bmi = num(b.bmi);
+    const comp = cleanComposition(b.bodyComposition);
+    if (comp) data.bodyComposition = comp;
     out.set(`weight:${t.utc}`, { data });
   }
+  const prof = cleanProfile(profile);
+  if (prof) out.set('profile:body', { idStructure: '%name%', data: { field: 'profile', name: 'body', ...prof } });
   return out;
+}
+
+// keep only numeric body-composition values; undefined when nothing is left
+function cleanComposition(comp) {
+  if (!comp || typeof comp !== 'object') return undefined;
+  const out = {};
+  for (const [k, v] of Object.entries(comp)) {
+    if (v === '' || v === null || v === undefined) continue;
+    const n = Number(v);
+    if (Number.isFinite(n)) out[k] = n;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function cleanProfile(profile) {
+  if (!profile || typeof profile !== 'object') return undefined;
+  const out = {};
+  if (profile.heightCm !== '' && profile.heightCm !== null && Number.isFinite(Number(profile.heightCm))) out.heightCm = num(profile.heightCm);
+  return Object.keys(out).length ? out : undefined;
 }
 
 // documents -> UI model
 export function docsToState(docs) {
   const exMap = new Map();
   const sets = [], bodyweight = [];
+  let profile = {};
   for (const doc of docs) {
     const d = doc.data;
     if (!d || !MANAGED_FIELDS.has(d.field)) continue;
@@ -123,8 +149,12 @@ export function docsToState(docs) {
     } else if (d.field === 'weight' && d.occurTime) {
       bodyweight.push({
         id: d.sourceId || doc._id, timestamp: Date.parse(d.occurTime.utc),
-        weight: d.weightKg, note: d.note || '', source: d.source
+        weight: d.weightKg, note: d.note || '', source: d.source,
+        ...(d.bmi !== undefined ? { bmi: d.bmi } : {}),
+        ...(d.bodyComposition ? { bodyComposition: { ...d.bodyComposition } } : {})
       });
+    } else if (d.field === 'profile' && d.name === 'body') {
+      profile = { ...(d.heightCm !== undefined ? { heightCm: d.heightCm } : {}) };
     }
   }
   for (const d of sets) {
@@ -149,7 +179,7 @@ export function docsToState(docs) {
     delete ex._order;
   }
   bodyweight.sort((a, b) => a.timestamp - b.timestamp);
-  return { exercises, activeExercises, bodyweight };
+  return { exercises, activeExercises, bodyweight, profile };
 }
 
 // keep provenance and extra fields (e.g. scale body composition) that the UI does not model
@@ -157,7 +187,7 @@ function mergeData(existing, desired) {
   const merged = { ...existing, ...desired };
   if (existing.source) merged.source = existing.source;
   if (existing.sourceId && !desired.sourceId) merged.sourceId = existing.sourceId;
-  for (const k of ['note', 'dropset', 'mioset']) if (!(k in desired)) delete merged[k];
+  for (const k of ['note', 'dropset', 'mioset', 'bmi', 'bodyComposition', 'heightCm']) if (!(k in desired)) delete merged[k];
   return merged;
 }
 

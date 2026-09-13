@@ -20,6 +20,7 @@
   let exercises = $state.raw([]);
   let activeExercises = $state.raw([]);
   let bodyweight = $state.raw([]);
+  let profile = $state.raw({});      // height etc., see profile:body document
   let loaded = $state(false);
   let knownIds = new Set();   // ids of the documents the current model was built from
 
@@ -37,6 +38,7 @@
     exercises = state.exercises;
     activeExercises = state.activeExercises;
     bodyweight = state.bodyweight;
+    profile = state.profile || {};
     knownIds = ids;
     if (currentExercise) {
       currentExercise = exercises.find(ex => ex.name === currentExercise.name) || currentExercise;
@@ -61,7 +63,7 @@
   let persistTimer;
   let persisting = Promise.resolve();
   $effect(() => {
-    const model = { exercises, activeExercises, bodyweight }; // reading the three arrays tracks them
+    const model = { exercises, activeExercises, bodyweight, profile }; // reading them here tracks them
     if (!loaded) return;
     clearTimeout(persistTimer);
     persistTimer = setTimeout(() => {
@@ -142,6 +144,10 @@
     bodyweight = newBodyweight;
   };
 
+  const setProfile = (newProfile) => {
+    profile = newProfile;
+  };
+
   const setCurrentExercise = (exercise) => {
     currentExercise = exercise;
   };
@@ -185,6 +191,7 @@
         <BodyweightPage
           {bodyweight}
           {setBodyweight}
+          {profile}
         />
       {:else if activeTab === 'settings'}
         <ManageExercisesPage
@@ -198,6 +205,8 @@
           {setExercises}
           {setActiveExercises}
           {setBodyweight}
+          {profile}
+          {setProfile}
         />
       {/if}
     </div>

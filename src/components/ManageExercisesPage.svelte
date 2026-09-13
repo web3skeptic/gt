@@ -48,8 +48,18 @@
     deleteExercise,
     setExercises,
     setActiveExercises,
-    setBodyweight = () => {}
+    setBodyweight = () => {},
+    profile = {},
+    setProfile = () => {}
   } = $props();
+
+  // body profile (height); stored once in the profile:body document, not per measurement
+  let heightInput = $state(profile?.heightCm ?? '');
+  $effect(() => { heightInput = profile?.heightCm ?? ''; });
+  const saveHeight = () => {
+    const h = parseFloat(heightInput);
+    setProfile({ ...profile, heightCm: Number.isFinite(h) && h > 0 ? h : undefined });
+  };
 
   let expandedExercises = $state({});
   let editingExercise = $state(null);
@@ -294,6 +304,33 @@
       <Trash2 size={16} class="mr-1" />
       Clear All Data
     </button>
+  </div>
+
+  <!-- Body profile -->
+  <div class="mb-6 bg-white p-4 rounded-lg shadow">
+    <h2 class="text-sm font-semibold text-gray-700 mb-2">Body profile</h2>
+    <div class="flex items-end gap-2">
+      <div class="flex-1">
+        <label for="profile-height" class="block text-xs text-gray-600 mb-1">Height (cm)</label>
+        <input
+          id="profile-height"
+          type="number"
+          step="1"
+          min="0"
+          inputmode="numeric"
+          bind:value={heightInput}
+          class="w-full p-2 border rounded-md text-sm"
+        />
+      </div>
+      <button
+        onclick={saveHeight}
+        disabled={String(heightInput) === String(profile?.heightCm ?? '')}
+        class="px-3 py-2 bg-blue-500 text-white rounded-md text-sm disabled:opacity-50"
+      >
+        Save
+      </button>
+    </div>
+    <p class="text-xs text-gray-400 mt-2">Used to compute BMI for bodyweight records that have none.</p>
   </div>
 
   <!-- Sync Section -->
