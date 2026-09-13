@@ -60,6 +60,7 @@
   let formComp = $state({ fatPct: '', waterPct: '', musclePct: '' });
   let formBmi = $state('');
   let editingId = $state(null);
+  let historyOpen = $state(false);
   let editingRecord = null;   // the record being edited, to keep fields the form does not show
 
   const sortedRecords = $derived(
@@ -587,13 +588,18 @@
 
   <!-- Section 3: History -->
   <div class="bg-white p-4 rounded-lg shadow">
-    <h2 class="text-lg font-semibold mb-3">
-      History {#if sortedRecords.length > 0}<span class="text-sm font-normal text-gray-500">({sortedRecords.length})</span>{/if}
-    </h2>
-    {#if sortedRecords.length === 0}
+    <button onclick={() => historyOpen = !historyOpen} class="w-full flex items-center justify-between text-left">
+      <h2 class="text-lg font-semibold">
+        History {#if sortedRecords.length > 0}<span class="text-sm font-normal text-gray-500">({sortedRecords.length})</span>{/if}
+      </h2>
+      {#if historyOpen}<ChevronUp size={18} class="text-gray-500" />{:else}<ChevronDown size={18} class="text-gray-500" />{/if}
+    </button>
+    {#if !historyOpen}
+      <!-- collapsed -->
+    {:else if sortedRecords.length === 0}
       <p class="text-sm text-gray-500 text-center py-4">No records yet.</p>
     {:else}
-      <div class="space-y-1 max-h-96 overflow-y-auto">
+      <div class="space-y-1 max-h-96 overflow-y-auto mt-3">
         {#each sortedRecords as record (record.id)}
           <div class="flex items-start justify-between bg-gray-50 px-3 py-2 rounded">
             <div class="min-w-0 flex-1 mr-2">

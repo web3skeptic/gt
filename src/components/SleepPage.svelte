@@ -1,5 +1,5 @@
 <script>
-  import { Plus, Edit2, Trash2, X, Check } from 'lucide-svelte';
+  import { Plus, Edit2, Trash2, X, Check, ChevronDown, ChevronUp } from 'lucide-svelte';
   import { formatDate } from '../utils/formatters.js';
 
   let { sleep, setSleep } = $props();
@@ -88,8 +88,10 @@
   const timeline = $derived.by(() => {
     if (!sleep.length) return null;
     const latest = Math.max(Date.now(), ...sleep.map(b => b.end));
+    const earliest = Math.min(...sleep.map(b => b.start));
+    const nDays = Math.min(400, Math.ceil((latest - earliest) / DAY_MS) + 1);
     const rows = [];
-    for (let i = 0; i < 35; i++) {
+    for (let i = 0; i < nDays; i++) {
       const key = dateInput(latest - i * DAY_MS);
       const start = rowStart(key), end = start + DAY_MS;
       const segs = [];
@@ -106,6 +108,12 @@
     return { rows, ticks, h: rows.length * ROW_H, width: LABEL_W + STRIP_W + TOTAL_W };
   });
   let hoverBlock = $state(null);
+  let historyOpen = $state(false);
+  // the strip scales with its container; show 10 rows and let the rest scroll
+  const VISIBLE_ROWS = 10, HEADER_H = 14;
+  let stripWidth = $state(0);
+  const unit = $derived(timeline && stripWidth ? stripWidth / timeline.width : 0);
+  const stripMaxHeight = $derived(unit ? (HEADER_H + VISIBLE_ROWS * ROW_H + 2) * unit : 0);
 </script>
 
 <div class="p-4">
@@ -160,6 +168,7 @@
       {/if}
     </div>
     {#if timeline}
+      <div bind:clientWidth={stripWidth} class="overflow-y-auto overscroll-contain" style="max-height: {stripMaxHeight ? stripMaxHeight + 'px' : 'none'}">
       <svg viewBox="0 0 {timeline.width} {timeline.h + 16}" class="w-full h-auto" role="img" aria-label="Sleep timeline">
         {#each timeline.ticks as tick (tick.h)}
           <line x1={LABEL_W + tick.x} x2={LABEL_W + tick.x} y1="12" y2={timeline.h + 14} stroke={tick.h === 0 ? '#9ca3af' : '#e5e7eb'} stroke-width="1" />
@@ -186,6 +195,10 @@
           {/if}
         {/each}
       </svg>
+      </div>
+      {#if timeline.rows.length > VISIBLE_ROWS}
+        <p class="text-[11px] text-gray-400 mt-1">Scroll the strip for earlier days ({timeline.rows.length} days).</p>
+      {/if}
     {:else}
       <p class="text-sm text-gray-500 text-center py-6">No sleep recorded yet.</p>
     {/if}
@@ -193,13 +206,18 @@
 
   <!-- History -->
   <div class="bg-white p-4 rounded-lg shadow">
-    <h2 class="text-lg font-semibold mb-3">
-      History {#if days.length}<span class="text-sm font-normal text-gray-500">({days.length} days)</span>{/if}
-    </h2>
-    {#if !days.length}
+    <button onclick={() => historyOpen = !historyOpen} class="w-full flex items-center justify-between text-left">
+      <h2 class="text-lg font-semibold">
+        History {#if days.length}<span class="text-sm font-normal text-gray-500">({days.length} days)</span>{/if}
+      </h2>
+      {#if historyOpen}<ChevronUp size={18} class="text-gray-500" />{:else}<ChevronDown size={18} class="text-gray-500" />{/if}
+    </button>
+    {#if !historyOpen}
+      <!-- collapsed -->
+    {:else if !days.length}
       <p class="text-sm text-gray-500 text-center py-4">No records yet.</p>
     {:else}
-      <div class="space-y-3 max-h-[28rem] overflow-y-auto">
+      <div class="space-y-3 max-h-[28rem] overflow-y-auto mt-3">
         {#each days as day (day.key)}
           <div>
             <div class="flex items-baseline justify-between text-sm">
