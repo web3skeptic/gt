@@ -9,11 +9,12 @@
 //   gym:<utc>_<exercise>_<kg>x<reps>         one document per set
 //   weight:<utc>                             one document per bodyweight record
 //   profile:body                             things that rarely change (height)
+//   sleep:<utc>                              one sleep block, ending at occurTime, length in dur
 import PouchDB from 'pouchdb-browser';
 import { setStatus } from './syncStatus.svelte.js';
 
 export const LOCAL_DB_NAME = 'organizer';
-const MANAGED_FIELDS = new Set(['exercise', 'gym', 'weight', 'profile']);
+const MANAGED_FIELDS = new Set(['exercise', 'gym', 'weight', 'profile', 'sleep']);
 const SYNC_KEY = 'gt-sync';
 const SET_ID_STRUCTURE = '%occurTime%_%exercise%_%weightKg%x%reps%';
 
@@ -67,7 +68,7 @@ function deepEqual(a, b) {
 
 // ---------------------------------------------------------------- model <-> documents
 // UI model -> Map<_id, {data, idStructure?}>
-export function stateToDocs({ exercises, activeExercises, bodyweight, profile }) {
+export function stateToDocs({ exercises, activeExercises, bodyweight, profile, sleep }) {
   const out = new Map();
   const active = new Set(activeExercises || []);
   (exercises || []).forEach((ex, i) => {
@@ -107,9 +108,29 @@ export function stateToDocs({ exercises, activeExercises, bodyweight, profile })
     if (comp) data.bodyComposition = comp;
     out.set(`weight:${t.utc}`, { data });
   }
+  for (const b of sleep || []) {
+    if (!(b.end > b.start)) continue;
+    const t = datumTime(b.end);
+    const data = { field: 'sleep', state: true, dur: isoDuration(b.end - b.start), occurTime: t, source: b.source || 'gym-tracker' };
+    if (b.note) data.note = b.note;
+    out.set(`sleep:${t.utc}`, { data });
+  }
   const prof = cleanProfile(profile);
   if (prof) out.set('profile:body', { idStructure: '%name%', data: { field: 'profile', name: 'body', ...prof } });
   return out;
+}
+
+// ISO 8601 durations, minute precision (PT7H45M)
+export function isoDuration(ms) {
+  const mins = Math.round(ms / 60000);
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return 'PT' + (h ? `${h}H` : '') + (m || !h ? `${m}M` : '');
+}
+export function parseIsoDuration(str) {
+  const m = /^(-)?P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/.exec(str || '');
+  if (!m) return null;
+  const ms = ((+m[2] || 0) * 86400 + (+m[3] || 0) * 3600 + (+m[4] || 0) * 60 + (+m[5] || 0)) * 1000;
+  return m[1] ? -ms : ms;
 }
 
 // keep only numeric body-composition values; undefined when nothing is left
@@ -134,7 +155,7 @@ function cleanProfile(profile) {
 // documents -> UI model
 export function docsToState(docs) {
   const exMap = new Map();
-  const sets = [], bodyweight = [];
+  const sets = [], bodyweight = [], sleep = [];
   let profile = {};
   for (const doc of docs) {
     const d = doc.data;
@@ -153,6 +174,9 @@ export function docsToState(docs) {
         ...(d.bmi !== undefined ? { bmi: d.bmi } : {}),
         ...(d.bodyComposition ? { bodyComposition: { ...d.bodyComposition } } : {})
       });
+    } else if (d.field === 'sleep' && d.occurTime && d.dur) {
+      const end = Date.parse(d.occurTime.utc), len = parseIsoDuration(d.dur);
+      if (len > 0) sleep.push({ id: doc._id, start: end - len, end, note: d.note || '', source: d.source });
     } else if (d.field === 'profile' && d.name === 'body') {
       profile = { ...(d.heightCm !== undefined ? { heightCm: d.heightCm } : {}) };
     }
@@ -179,7 +203,8 @@ export function docsToState(docs) {
     delete ex._order;
   }
   bodyweight.sort((a, b) => a.timestamp - b.timestamp);
-  return { exercises, activeExercises, bodyweight, profile };
+  sleep.sort((a, b) => a.start - b.start);
+  return { exercises, activeExercises, bodyweight, profile, sleep };
 }
 
 // keep provenance and extra fields (e.g. scale body composition) that the UI does not model

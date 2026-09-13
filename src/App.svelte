@@ -5,8 +5,9 @@
   import ManageExercisesPage from './components/ManageExercisesPage.svelte';
   import MuscleEngagementPage from './components/MuscleEngagementPage.svelte';
   import BodyweightPage from './components/BodyweightPage.svelte';
+  import SleepPage from './components/SleepPage.svelte';
   import GlobalTimer from './components/GlobalTimer.svelte';
-  import { Dumbbell, Activity, Scale, Settings } from 'lucide-svelte';
+  import { Dumbbell, Activity, Scale, Settings, Moon } from 'lucide-svelte';
   import { onMount } from 'svelte';
   import { loadAll, snapshot, persist, watchChanges, startSync, stopSync, loadSyncConfig } from './lib/db.js';
 
@@ -21,6 +22,7 @@
   let activeExercises = $state.raw([]);
   let bodyweight = $state.raw([]);
   let profile = $state.raw({});      // height etc., see profile:body document
+  let sleep = $state.raw([]);        // sleep blocks {id, start, end, note}
   let loaded = $state(false);
   let knownIds = new Set();   // ids of the documents the current model was built from
 
@@ -39,6 +41,7 @@
     activeExercises = state.activeExercises;
     bodyweight = state.bodyweight;
     profile = state.profile || {};
+    sleep = state.sleep || [];
     knownIds = ids;
     if (currentExercise) {
       currentExercise = exercises.find(ex => ex.name === currentExercise.name) || currentExercise;
@@ -63,7 +66,7 @@
   let persistTimer;
   let persisting = Promise.resolve();
   $effect(() => {
-    const model = { exercises, activeExercises, bodyweight, profile }; // reading them here tracks them
+    const model = { exercises, activeExercises, bodyweight, profile, sleep }; // reading them here tracks them
     if (!loaded) return;
     clearTimeout(persistTimer);
     persistTimer = setTimeout(() => {
@@ -148,6 +151,10 @@
     profile = newProfile;
   };
 
+  const setSleep = (newSleep) => {
+    sleep = newSleep;
+  };
+
   const setCurrentExercise = (exercise) => {
     currentExercise = exercise;
   };
@@ -192,6 +199,11 @@
           {bodyweight}
           {setBodyweight}
           {profile}
+        />
+      {:else if activeTab === 'sleep'}
+        <SleepPage
+          {sleep}
+          {setSleep}
         />
       {:else if activeTab === 'settings'}
         <ManageExercisesPage
@@ -274,6 +286,16 @@
       >
         <Scale size={24} />
         <span class="text-xs mt-1">Body</span>
+      </button>
+
+      <button
+        onclick={() => setTab('sleep')}
+        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+          page === 'home' && activeTab === 'sleep' ? 'text-blue-500' : 'text-gray-500'
+        }"
+      >
+        <Moon size={24} />
+        <span class="text-xs mt-1">Sleep</span>
       </button>
 
       <button
