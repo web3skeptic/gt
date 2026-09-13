@@ -78,23 +78,34 @@
     return [...map.values()];
   });
 
-  // ---- chart: total hours per day for the last 30 days that have data ----
-  const CHART_W = 600, CHART_H = 160, PAD_L = 28, PAD_B = 22, PAD_T = 8;
-  const chart = $derived.by(() => {
-    const recent = days.slice(0, 30).reverse();
-    if (!recent.length) return null;
-    const maxH = Math.max(9, ...recent.map(d => d.total / 3600000));
-    const w = (CHART_W - PAD_L) / recent.length;
-    return {
-      bars: recent.map((d, i) => {
-        const h = d.total / 3600000;
-        const bh = (h / maxH) * (CHART_H - PAD_B - PAD_T);
-        return { x: PAD_L + i * w + w * 0.15, w: w * 0.7, y: CHART_H - PAD_B - bh, h: bh, hours: h, label: new Date(d.ts).getDate(), key: d.key };
-      }),
-      ticks: [0, 3, 6, 9].filter(t => t <= maxH).map(t => ({ t, y: CHART_H - PAD_B - (t / maxH) * (CHART_H - PAD_B - PAD_T) })),
-      avg: recent.reduce((s, d) => s + d.total, 0) / recent.length
-    };
+  // ---- timeline: one row per day, from 20:00 the evening before to 20:00, so a night is one line ----
+  const ROW_H = 14, LABEL_W = 46, TOTAL_W = 44, STRIP_W = 600, DAY_MS = 24 * 3600 * 1000;
+  const WINDOW_START_HOUR = 20;
+  const rowStart = (dateKey) => {           // 20:00 of the previous calendar day, local time
+    const [y, m, d] = dateKey.split('-').map(Number);
+    return new Date(y, m - 1, d - 1, WINDOW_START_HOUR, 0).getTime();
+  };
+  const timeline = $derived.by(() => {
+    if (!sleep.length) return null;
+    const latest = Math.max(Date.now(), ...sleep.map(b => b.end));
+    const rows = [];
+    for (let i = 0; i < 35; i++) {
+      const key = dateInput(latest - i * DAY_MS);
+      const start = rowStart(key), end = start + DAY_MS;
+      const segs = [];
+      let total = 0;
+      for (const b of sleep) {
+        const s0 = Math.max(b.start, start), s1 = Math.min(b.end, end);
+        if (s1 <= s0) continue;
+        segs.push({ x: ((s0 - start) / DAY_MS) * STRIP_W, w: Math.max(1.5, ((s1 - s0) / DAY_MS) * STRIP_W), block: b });
+        total += s1 - s0;
+      }
+      rows.push({ key, ts: start + DAY_MS / 2, segs, total, y: i * ROW_H });
+    }
+    const ticks = [20, 0, 4, 8, 12, 16].map((h, i) => ({ h, x: (i * 4 / 24) * STRIP_W }));
+    return { rows, ticks, h: rows.length * ROW_H, width: LABEL_W + STRIP_W + TOTAL_W };
   });
+  let hoverBlock = $state(null);
 </script>
 
 <div class="p-4">
@@ -138,23 +149,41 @@
     </div>
   </div>
 
-  <!-- Chart -->
+  <!-- Timeline -->
   <div class="mb-6 bg-white p-4 rounded-lg shadow">
-    <div class="flex items-baseline justify-between mb-3">
-      <h2 class="text-lg font-semibold">Hours per day</h2>
-      {#if chart}<span class="text-xs text-gray-500">avg {hours(chart.avg)} over {chart.bars.length} days</span>{/if}
+    <div class="flex items-baseline justify-between mb-2">
+      <h2 class="text-lg font-semibold">When you slept</h2>
+      {#if hoverBlock}
+        <span class="text-xs text-gray-600">{formatDate(hoverBlock.start)} {timeInput(hoverBlock.start)} – {timeInput(hoverBlock.end)} · {hours(hoverBlock.end - hoverBlock.start)}</span>
+      {:else}
+        <span class="text-xs text-gray-400">20:00 → 20:00, one row per day</span>
+      {/if}
     </div>
-    {#if chart}
-      <svg viewBox="0 0 {CHART_W} {CHART_H}" class="w-full h-auto" role="img" aria-label="Sleep hours per day">
-        {#each chart.ticks as tick (tick.t)}
-          <line x1={PAD_L} x2={CHART_W} y1={tick.y} y2={tick.y} stroke="#e5e7eb" stroke-width="1" />
-          <text x={PAD_L - 6} y={tick.y + 4} text-anchor="end" font-size="11" fill="#6b7280">{tick.t}h</text>
+    {#if timeline}
+      <svg viewBox="0 0 {timeline.width} {timeline.h + 16}" class="w-full h-auto" role="img" aria-label="Sleep timeline">
+        {#each timeline.ticks as tick (tick.h)}
+          <line x1={LABEL_W + tick.x} x2={LABEL_W + tick.x} y1="12" y2={timeline.h + 14} stroke={tick.h === 0 ? '#9ca3af' : '#e5e7eb'} stroke-width="1" />
+          <text x={LABEL_W + tick.x} y="9" text-anchor="middle" font-size="9" fill="#6b7280">{pad(tick.h)}:00</text>
         {/each}
-        {#each chart.bars as bar (bar.key)}
-          <rect x={bar.x} y={bar.y} width={bar.w} height={bar.h} rx="2" fill={bar.hours < 6 ? '#f59e0b' : '#3b82f6'}>
-            <title>{bar.key}: {hours(bar.hours * 3600000)}</title>
-          </rect>
-          <text x={bar.x + bar.w / 2} y={CHART_H - 6} text-anchor="middle" font-size="10" fill="#9ca3af">{bar.label}</text>
+        {#each timeline.rows as row (row.key)}
+          <text x={LABEL_W - 6} y={14 + row.y + ROW_H - 4} text-anchor="end" font-size="9" fill={row.segs.length ? '#374151' : '#c4c8d0'}>{new Date(row.ts).toLocaleDateString([], { day: '2-digit', month: 'short' })}</text>
+          <rect x={LABEL_W} y={14 + row.y + 1} width={STRIP_W} height={ROW_H - 2} fill="#f9fafb" />
+          {#each row.segs as seg, i (i)}
+            <rect
+              x={LABEL_W + seg.x} y={14 + row.y + 1} width={seg.w} height={ROW_H - 2} rx="1.5"
+              fill={seg.block.end - seg.block.start < 2 * 3600 * 1000 ? '#93c5fd' : '#3b82f6'}
+              role="presentation"
+              onpointerenter={() => hoverBlock = seg.block}
+              onpointerleave={() => hoverBlock = null}
+              onclick={() => startEdit(seg.block)}
+              class="cursor-pointer"
+            >
+              <title>{timeInput(seg.block.start)} – {timeInput(seg.block.end)} · {hours(seg.block.end - seg.block.start)}{seg.block.note ? ` · ${seg.block.note}` : ''}</title>
+            </rect>
+          {/each}
+          {#if row.total}
+            <text x={LABEL_W + STRIP_W + 6} y={14 + row.y + ROW_H - 4} font-size="9" fill={row.total < 6 * 3600 * 1000 ? '#d97706' : '#374151'}>{hours(row.total)}</text>
+          {/if}
         {/each}
       </svg>
     {:else}
