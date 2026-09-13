@@ -6,11 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "npm run build && electron .",
+    "electron:debug": "npm run build && GT_DEBUG=1 electron .",
+    "electron:build": "npm run build && electron-builder --mac --publish never"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.4",
     "autoprefixer": "^10.4.20",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
     "postcss": "^8.4.49",
     "svelte": "^5.17.0",
     "tailwindcss": "^3.4.17",
@@ -18,6 +23,39 @@
     "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
-    "lucide-svelte": "^0.469.0"
+    "events": "^3.3.0",
+    "lucide-svelte": "^0.469.0",
+    "pouchdb-browser": "^9.0.0"
+  },
+  "main": "electron/main.cjs",
+  "description": "Gym tracker: PWA and desktop app with CouchDB sync",
+  "build": {
+    "appId": "com.gymtracker.desktop",
+    "productName": "Gym Tracker",
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.healthcare-fitness",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
   }
 }

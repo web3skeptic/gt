@@ -7,6 +7,7 @@ export default defineConfig({
     svelte(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: null, // registered from main.js, only when served over http(s)
       includeAssets: ['favicon.ico', 'logo192.png', 'logo512.png'],
       manifest: {
         name: 'Gym Tracker',
@@ -36,6 +37,11 @@ export default defineConfig({
       }
     })
   ],
+  resolve: {
+    // pouchdb-browser extends Node's EventEmitter; point it at the npm polyfill
+    alias: { events: 'events' }
+  },
+  optimizeDeps: { include: ['pouchdb-browser', 'events'] },
   base: '/gt/',
   build: {
     outDir: 'dist'

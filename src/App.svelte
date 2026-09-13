@@ -7,20 +7,21 @@
   import BodyweightPage from './components/BodyweightPage.svelte';
   import GlobalTimer from './components/GlobalTimer.svelte';
   import { Dumbbell, Activity, Scale, Settings } from 'lucide-svelte';
-  import { initialExercises, initialActiveExercises } from './utils/initialData.js';
+  import { onMount } from 'svelte';
+  import { loadAll, snapshot, persist, watchChanges, startSync, stopSync, loadSyncConfig } from './lib/db.js';
 
   // State using Svelte 5 runes
   let page = $state('home');
   let activeTab = $state('exercises'); // exercises, muscles, body, settings
 
-  const savedExercises = localStorage.getItem('exercises');
-  let exercises = $state(savedExercises && savedExercises !== 'undefined' ? JSON.parse(savedExercises) : initialExercises);
-
-  const savedActive = localStorage.getItem('activeExercises');
-  let activeExercises = $state(savedActive && savedActive !== 'undefined' ? JSON.parse(savedActive) : initialActiveExercises);
-
-  const savedBodyweight = localStorage.getItem('bodyweight');
-  let bodyweight = $state(savedBodyweight && savedBodyweight !== 'undefined' ? JSON.parse(savedBodyweight) : []);
+  // Data lives in the local PouchDB database (see lib/db.js) and is replicated with CouchDB.
+  // $state.raw: components always replace these arrays instead of mutating them, and a deep
+  // proxy over ~2000 sets makes every snapshot cost seconds.
+  let exercises = $state.raw([]);
+  let activeExercises = $state.raw([]);
+  let bodyweight = $state.raw([]);
+  let loaded = $state(false);
+  let knownIds = new Set();   // ids of the documents the current model was built from
 
   let currentExercise = $state(null);
   let newExerciseName = $state('');
@@ -31,11 +32,45 @@
     note: ''
   });
 
-  // Save to localStorage whenever data changes
+  // Replace the model with what the database holds (initial load, or after replication).
+  const applySnapshot = ({ state, knownIds: ids }) => {
+    exercises = state.exercises;
+    activeExercises = state.activeExercises;
+    bodyweight = state.bodyweight;
+    knownIds = ids;
+    if (currentExercise) {
+      currentExercise = exercises.find(ex => ex.name === currentExercise.name) || currentExercise;
+    }
+  };
+
+  onMount(() => {
+    let feed;
+    (async () => {
+      applySnapshot(await loadAll());
+      loaded = true;
+      feed = watchChanges(() => applySnapshot(snapshot()));
+      startSync(loadSyncConfig());
+    })();
+    return () => {
+      if (feed) feed.cancel();
+      stopSync();
+    };
+  });
+
+  // Write the model to the database whenever it changes (debounced, one write at a time).
+  let persistTimer;
+  let persisting = Promise.resolve();
   $effect(() => {
-    localStorage.setItem('exercises', JSON.stringify(exercises));
-    localStorage.setItem('activeExercises', JSON.stringify(activeExercises));
-    localStorage.setItem('bodyweight', JSON.stringify(bodyweight));
+    const model = { exercises, activeExercises, bodyweight }; // reading the three arrays tracks them
+    if (!loaded) return;
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      const ids = knownIds;
+      persisting = persisting
+        .then(() => persist(model, ids))
+        .then(({ conflicts }) => { if (conflicts) applySnapshot(snapshot()); })
+        .catch(err => console.error('persist failed', err));
+    }, 300);
   });
 
   // Navigation functions
@@ -125,7 +160,9 @@
 </script>
 
 <div class="min-h-screen bg-gray-100 pb-20">
-  {#if page === 'home'}
+  {#if !loaded}
+    <div class="text-center py-16 text-gray-500">Loading…</div>
+  {:else if page === 'home'}
     <!-- Tab Content -->
     <div class="max-w-4xl mx-auto">
       {#if activeTab === 'exercises'}

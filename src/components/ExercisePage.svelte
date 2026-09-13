@@ -330,7 +330,7 @@
             oninput={(e) => setNewSet({...newSet, weight: e.target.value})}
             class="w-full p-2 border rounded-md"
             step="0.5"
-            placeholder="Optional (0)"
+            placeholder="0"
           />
         </div>
         <div>

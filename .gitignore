@@ -38,3 +38,6 @@ coverage
 *.sln
 *.sw?
 import-data/
+
+# desktop builds
+release/

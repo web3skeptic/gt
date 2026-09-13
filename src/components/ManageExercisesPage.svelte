@@ -1,6 +1,42 @@
 <script>
   import { Plus, Trash2, Download, Upload, ChevronDown, ChevronUp, Edit2, X, Check, Search } from 'lucide-svelte';
   import ConfirmDialog from './common/ConfirmDialog.svelte';
+  import { RefreshCw } from 'lucide-svelte';
+  import { loadSyncConfig, saveSyncConfig, startSync, testConnection } from '../lib/db.js';
+  import { syncStatus } from '../lib/syncStatus.svelte.js';
+
+  // ---- sync settings ----
+  let sync = $state(loadSyncConfig());
+  let syncMessage = $state('');
+
+  const handleSaveSync = async () => {
+    syncMessage = '';
+    const cfg = { url: sync.url.trim(), user: sync.user.trim(), password: sync.password, enabled: true };
+    try {
+      const info = await testConnection(cfg);
+      saveSyncConfig(cfg);
+      sync = cfg;
+      startSync(cfg);
+      syncMessage = `Connected: ${info.db_name}, ${info.doc_count} documents on the server.`;
+    } catch (e) {
+      syncMessage = 'Connection failed: ' + (e.status === 401 ? 'wrong user name or password' : (e.message || e.reason || e));
+    }
+  };
+
+  const handleDisableSync = () => {
+    const cfg = { ...sync, enabled: false };
+    saveSyncConfig(cfg);
+    sync = cfg;
+    startSync(cfg);
+    syncMessage = 'Sync turned off. Data stays on this device.';
+  };
+
+  const syncLabel = $derived({
+    off: 'off', connecting: 'connecting…', syncing: 'syncing…', idle: 'up to date', error: 'error'
+  }[syncStatus.state] || syncStatus.state);
+  const syncColor = $derived({
+    off: 'bg-gray-400', connecting: 'bg-yellow-400', syncing: 'bg-blue-500', idle: 'bg-green-500', error: 'bg-red-500'
+  }[syncStatus.state] || 'bg-gray-400');
 
   let {
     goToHome,
@@ -260,6 +296,71 @@
     </button>
   </div>
 
+  <!-- Sync Section -->
+  <div class="mb-6 bg-white p-4 rounded-lg shadow">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 flex items-center">
+        <RefreshCw size={14} class="mr-1" /> Sync
+      </h2>
+      <span class="flex items-center text-xs text-gray-600">
+        <span class="inline-block w-2 h-2 rounded-full mr-1 {syncColor}"></span>
+        {syncLabel}
+        {#if syncStatus.state === 'idle' && syncStatus.lastSync}
+          · {new Date(syncStatus.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        {/if}
+      </span>
+    </div>
+    {#if syncStatus.error}
+      <div class="text-xs text-red-600 mb-2">{syncStatus.error}</div>
+    {/if}
+    <div class="space-y-2">
+      <input
+        type="url"
+        bind:value={sync.url}
+        placeholder="CouchDB database URL"
+        autocomplete="off"
+        class="w-full p-2 border rounded-md text-sm"
+      />
+      <div class="grid grid-cols-2 gap-2">
+        <input
+          type="text"
+          bind:value={sync.user}
+          placeholder="User"
+          autocomplete="username"
+          class="w-full p-2 border rounded-md text-sm"
+        />
+        <input
+          type="password"
+          bind:value={sync.password}
+          placeholder="Password"
+          autocomplete="current-password"
+          class="w-full p-2 border rounded-md text-sm"
+        />
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button
+          onclick={handleSaveSync}
+          class="flex items-center justify-center px-3 py-2 bg-blue-500 text-white rounded-md text-sm"
+        >
+          Connect &amp; sync
+        </button>
+        <button
+          onclick={handleDisableSync}
+          disabled={!sync.enabled}
+          class="flex items-center justify-center px-3 py-2 bg-gray-200 text-gray-700 rounded-md text-sm disabled:opacity-50"
+        >
+          Turn off
+        </button>
+      </div>
+      {#if syncMessage}
+        <div class="text-xs text-gray-600">{syncMessage}</div>
+      {/if}
+      <p class="text-xs text-gray-400">
+        Data is stored on this device and mirrored to the CouchDB above. Every device connected to the same database sees the same data, also offline.
+      </p>
+    </div>
+  </div>
+
   <h2 class="text-lg font-semibold mb-2">Your Exercises</h2>
 
   {#if exercises.length === 0}
@@ -438,7 +539,10 @@
 
   <ConfirmDialog
     open={clearAllConfirmation}
-    message="Are you sure you want to clear all data? This will delete every exercise, history, and bodyweight record. This cannot be undone."
+    title="Delete everything?"
+    message={`This deletes ${exercises.length} exercises, ${exercises.reduce((n, ex) => n + (ex.history?.length || 0), 0)} sets and ${bodyweight.length} bodyweight records.${syncStatus.state !== 'off' ? '\n\nSync is on: the deletion is copied to the server and to every other device.' : ''}\n\nThere is no undo.`}
+    confirmLabel="Delete everything"
+    typeToConfirm="DELETE"
     onCancel={() => clearAllConfirmation = false}
     onConfirm={handleClearAllData}
   />
