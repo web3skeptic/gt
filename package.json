@@ -45,7 +45,8 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "icon": "electron/icon.icns"
     },
     "linux": {
       "target": [
