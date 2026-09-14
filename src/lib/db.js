@@ -10,11 +10,13 @@
 //   weight:<utc>                             one document per bodyweight record
 //   profile:body                             things that rarely change (height)
 //   sleep:<utc>                              one sleep block, ending at occurTime, length in dur
+//   piece:<name>                             a composition being learned
+//   music:<utc>                              one practice run of a piece (hits, errors, …)
 import PouchDB from 'pouchdb-browser';
 import { setStatus } from './syncStatus.svelte.js';
 
 export const LOCAL_DB_NAME = 'organizer';
-const MANAGED_FIELDS = new Set(['exercise', 'gym', 'weight', 'profile', 'sleep']);
+const MANAGED_FIELDS = new Set(['exercise', 'gym', 'weight', 'profile', 'sleep', 'piece', 'music']);
 const SYNC_KEY = 'gt-sync';
 const SET_ID_STRUCTURE = '%occurTime%_%exercise%_%weightKg%x%reps%';
 
@@ -68,7 +70,7 @@ function deepEqual(a, b) {
 
 // ---------------------------------------------------------------- model <-> documents
 // UI model -> Map<_id, {data, idStructure?}>
-export function stateToDocs({ exercises, activeExercises, bodyweight, profile, sleep }) {
+export function stateToDocs({ exercises, activeExercises, bodyweight, profile, sleep, pieces, music }) {
   const out = new Map();
   const active = new Set(activeExercises || []);
   (exercises || []).forEach((ex, i) => {
@@ -115,10 +117,27 @@ export function stateToDocs({ exercises, activeExercises, bodyweight, profile, s
     if (b.note) data.note = b.note;
     out.set(`sleep:${t.utc}`, { data });
   }
+  (pieces || []).forEach((p, i) => {
+    out.set(`piece:${p.name}`, { idStructure: '%name%', data: { field: 'piece', name: p.name, active: p.active !== false, order: i, ...(p.composer ? { composer: p.composer } : {}) } });
+  });
+  for (const r of music || []) {
+    if (!r.piece || !r.timestamp) continue;
+    const t = datumTime(r.timestamp);
+    const data = { field: 'music', piece: r.piece, occurTime: t, source: r.source || 'gym-tracker' };
+    for (const k of MUSIC_METRICS) {
+      const v = r[k];
+      if (v !== '' && v !== null && v !== undefined && Number.isFinite(Number(v))) data[k] = num(v);
+    }
+    if (r.grade) data.grade = r.grade;
+    if (r.note) data.note = r.note;
+    out.set(`music:${t.utc}`, { data });
+  }
   const prof = cleanProfile(profile);
   if (prof) out.set('profile:body', { idStructure: '%name%', data: { field: 'profile', name: 'body', ...prof } });
   return out;
 }
+
+export const MUSIC_METRICS = ['score', 'hits', 'errors', 'perfectPct', 'avgDevMs', 'cleanReleasesPct', 'bestStreak'];
 
 // ISO 8601 durations, minute precision (PT7H45M)
 export function isoDuration(ms) {
@@ -155,7 +174,7 @@ function cleanProfile(profile) {
 // documents -> UI model
 export function docsToState(docs) {
   const exMap = new Map();
-  const sets = [], bodyweight = [], sleep = [];
+  const sets = [], bodyweight = [], sleep = [], music = [], pieces = [];
   let profile = {};
   for (const doc of docs) {
     const d = doc.data;
@@ -177,6 +196,13 @@ export function docsToState(docs) {
     } else if (d.field === 'sleep' && d.occurTime && d.dur) {
       const end = Date.parse(d.occurTime.utc), len = parseIsoDuration(d.dur);
       if (len > 0) sleep.push({ id: doc._id, start: end - len, end, note: d.note || '', source: d.source });
+    } else if (d.field === 'piece' && d.name) {
+      pieces.push({ name: d.name, active: d.active !== false, _order: typeof d.order === 'number' ? d.order : Infinity, ...(d.composer ? { composer: d.composer } : {}) });
+    } else if (d.field === 'music' && d.occurTime && d.piece) {
+      const r = { id: doc._id, piece: d.piece, timestamp: Date.parse(d.occurTime.utc), note: d.note || '', source: d.source };
+      for (const k of MUSIC_METRICS) if (d[k] !== undefined) r[k] = d[k];
+      if (d.grade) r.grade = d.grade;
+      music.push(r);
     } else if (d.field === 'profile' && d.name === 'body') {
       profile = { ...(d.heightCm !== undefined ? { heightCm: d.heightCm } : {}) };
     }
@@ -204,7 +230,11 @@ export function docsToState(docs) {
   }
   bodyweight.sort((a, b) => a.timestamp - b.timestamp);
   sleep.sort((a, b) => a.start - b.start);
-  return { exercises, activeExercises, bodyweight, profile, sleep };
+  music.sort((a, b) => a.timestamp - b.timestamp);
+  pieces.sort((a, b) => (a._order === b._order ? 0 : a._order - b._order) || a.name.localeCompare(b.name));
+  pieces.forEach(p => delete p._order);
+  for (const r of music) if (!pieces.some(p => p.name === r.piece)) pieces.push({ name: r.piece, active: true });
+  return { exercises, activeExercises, bodyweight, profile, sleep, pieces, music };
 }
 
 // keep provenance and extra fields (e.g. scale body composition) that the UI does not model
@@ -212,7 +242,7 @@ function mergeData(existing, desired) {
   const merged = { ...existing, ...desired };
   if (existing.source) merged.source = existing.source;
   if (existing.sourceId && !desired.sourceId) merged.sourceId = existing.sourceId;
-  for (const k of ['note', 'dropset', 'mioset', 'bmi', 'bodyComposition', 'heightCm']) if (!(k in desired)) delete merged[k];
+  for (const k of ['note', 'dropset', 'mioset', 'bmi', 'bodyComposition', 'heightCm', 'grade', 'composer', ...MUSIC_METRICS]) if (!(k in desired)) delete merged[k];
   return merged;
 }
 

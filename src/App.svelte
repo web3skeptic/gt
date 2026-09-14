@@ -6,8 +6,9 @@
   import MuscleEngagementPage from './components/MuscleEngagementPage.svelte';
   import BodyweightPage from './components/BodyweightPage.svelte';
   import SleepPage from './components/SleepPage.svelte';
+  import MusicPage from './components/MusicPage.svelte';
   import GlobalTimer from './components/GlobalTimer.svelte';
-  import { Dumbbell, Activity, Scale, Settings, Moon } from 'lucide-svelte';
+  import { Dumbbell, Activity, Scale, Settings, Moon, Music } from 'lucide-svelte';
   import { onMount } from 'svelte';
   import { loadAll, snapshot, persist, watchChanges, startSync, stopSync, loadSyncConfig } from './lib/db.js';
 
@@ -23,6 +24,8 @@
   let bodyweight = $state.raw([]);
   let profile = $state.raw({});      // height etc., see profile:body document
   let sleep = $state.raw([]);        // sleep blocks {id, start, end, note}
+  let pieces = $state.raw([]);       // compositions being learned
+  let music = $state.raw([]);        // practice runs
   let loaded = $state(false);
   let knownIds = new Set();   // ids of the documents the current model was built from
 
@@ -42,6 +45,8 @@
     bodyweight = state.bodyweight;
     profile = state.profile || {};
     sleep = state.sleep || [];
+    pieces = state.pieces || [];
+    music = state.music || [];
     knownIds = ids;
     if (currentExercise) {
       currentExercise = exercises.find(ex => ex.name === currentExercise.name) || currentExercise;
@@ -66,7 +71,7 @@
   let persistTimer;
   let persisting = Promise.resolve();
   $effect(() => {
-    const model = { exercises, activeExercises, bodyweight, profile, sleep }; // reading them here tracks them
+    const model = { exercises, activeExercises, bodyweight, profile, sleep, pieces, music }; // reading them here tracks them
     if (!loaded) return;
     clearTimeout(persistTimer);
     persistTimer = setTimeout(() => {
@@ -155,6 +160,9 @@
     sleep = newSleep;
   };
 
+  const setPieces = (v) => { pieces = v; };
+  const setMusic = (v) => { music = v; };
+
   const setCurrentExercise = (exercise) => {
     currentExercise = exercise;
   };
@@ -204,6 +212,13 @@
         <SleepPage
           {sleep}
           {setSleep}
+        />
+      {:else if activeTab === 'music'}
+        <MusicPage
+          {pieces}
+          {setPieces}
+          {music}
+          {setMusic}
         />
       {:else if activeTab === 'settings'}
         <ManageExercisesPage
@@ -260,7 +275,7 @@
     <div class="max-w-4xl mx-auto flex justify-around">
       <button
         onclick={() => setTab('exercises')}
-        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+        class="flex-1 flex flex-col items-center py-3 px-1 transition-colors {
           page === 'home' && activeTab === 'exercises' ? 'text-blue-500' : 'text-gray-500'
         }"
       >
@@ -270,7 +285,7 @@
 
       <button
         onclick={() => setTab('muscles')}
-        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+        class="flex-1 flex flex-col items-center py-3 px-1 transition-colors {
           page === 'home' && activeTab === 'muscles' ? 'text-blue-500' : 'text-gray-500'
         }"
       >
@@ -280,7 +295,7 @@
 
       <button
         onclick={() => setTab('body')}
-        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+        class="flex-1 flex flex-col items-center py-3 px-1 transition-colors {
           page === 'home' && activeTab === 'body' ? 'text-blue-500' : 'text-gray-500'
         }"
       >
@@ -290,7 +305,7 @@
 
       <button
         onclick={() => setTab('sleep')}
-        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+        class="flex-1 flex flex-col items-center py-3 px-1 transition-colors {
           page === 'home' && activeTab === 'sleep' ? 'text-blue-500' : 'text-gray-500'
         }"
       >
@@ -299,8 +314,18 @@
       </button>
 
       <button
+        onclick={() => setTab('music')}
+        class="flex-1 flex flex-col items-center py-3 px-1 transition-colors {
+          page === 'home' && activeTab === 'music' ? 'text-blue-500' : 'text-gray-500'
+        }"
+      >
+        <Music size={24} />
+        <span class="text-xs mt-1">Music</span>
+      </button>
+
+      <button
         onclick={() => setTab('settings')}
-        class="flex-1 flex flex-col items-center py-3 px-2 transition-colors {
+        class="flex-1 flex flex-col items-center py-3 px-1 transition-colors {
           page === 'home' && activeTab === 'settings' ? 'text-blue-500' : 'text-gray-500'
         }"
       >
